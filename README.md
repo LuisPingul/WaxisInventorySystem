@@ -38,8 +38,8 @@ Open: http://127.0.0.1:8000/accounts/login/
 | **Kitchen Hub** | Touch-optimized deduction entry (HTMX autocomplete) |
 | **Crew Dashboard** | Responsive ingredient grid with inline deduct forms, HTMX search, scrollable (no pagination), zero-stock disabling |
 | **Owner/Manager Dashboards** | Stats, Executive Summary (structured list), Procurement Radar, Storage Distribution chart |
-| **Forecasting** | Dual-mode: Consumption (stockout) + Supplier Rhythm (delivery windows) |
-| **Procurement Radar** | "Active Hunter" — upcoming supplier delivery windows (HTMX) |
+| **Forecasting** | 3-tab UI: Consumption (HTMX risk filter) + Supplier Radar (60s polling) + Stockout Timeline (Chart.js) |
+| **Procurement Radar** | "Active Hunter" — upcoming supplier delivery windows, Refresh + auto-polling on dashboards |
 | **PO Manager** | Alerts → PRs → Supplier emails (deterministic templates) |
 | **Reports** | Turnover, waste, variance tracking (SDG 12) |
 
@@ -48,6 +48,8 @@ Open: http://127.0.0.1:8000/accounts/login/
 1. **Consumption Forecast** (`compute_forecasts` cron) — 30-day rolling avg from `StockTransaction`, predicts stockout date, suggests reorder, classifies risk (HIGH/MEDIUM/LOW)
 2. **Supplier Rhythm** (Agrilytics) — Inter-Arrival Time analysis on `InboundShipment` history (min 3 deliveries), predicts delivery windows with confidence score
 3. **Dual-Mode** — Combines both: downgrades risk if supplier delivering soon, escalates if no delivery window in sight
+4. **Shared selectors** (`forecasting/selectors.py`) — `get_enriched_rows` + `get_radar_alerts` + `build_forecast_context` reused by forecast page and dashboard partials (no duplicated logic)
+5. **Variance tracking** — `AIProcurementAlert` logs predicted vs actual zero date (`variance_days`, `accuracy_note`), surfaced in `forecasting/alerts.html`
 
 ## Management Commands
 
@@ -81,7 +83,7 @@ See `DEPLOYMENT_PLAN.md` for Render Web Service + Supabase Free (Singapore) + Cr
 
 ## Architecture
 
-- **Frontend**: Django Templates + HTMX + Bootstrap 5 + Chart.js (CDN)
+- **Frontend**: Django Templates + HTMX (partials, `HX-Redirect`, polling) + Bootstrap 5 + Chart.js (CDN)
 - **Backend**: Django 4.2 (LTS), pure Python forecasting (`statistics` module)
 - **DB**: PostgreSQL (Supabase) / SQLite (dev)
 - **Zero external AI** — no Gemini, no API keys required

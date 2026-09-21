@@ -54,8 +54,8 @@ A responsive, mobile-first ingredient grid replacing the single-form deduction p
 The central hub for the Operations Manager and Owner.
 * **Function:** Displays high-level analytics, including Total SKUs, Critical/Low Stock alerts, Pending Procurement, **Storage Distribution doughnut chart**, and a live movement ticker.
 * **AI Integration:** **Executive Summary** — rule-based structured HTML list with enumerated items + explanations, color-coded severity headers, actionable recommendation box.
-* **Procurement Radar:** HTMX partial showing upcoming supplier delivery windows (CONTACT_NOW ≤7 days / UPCOMING >7 days) with confidence scores. "Lock In Order" → pre-filled PR redirect.
-* **Forecasting Tab:** Dual-tab interface — Consumption Forecast (stockout risk) + Supplier Radar (delivery windows). Dual-mode badges show combined risk source.
+* **Procurement Radar:** HTMX partial (`forecasting/_procurement_radar.html`, Bootstrap + Waxi brand) showing upcoming supplier delivery windows (CONTACT_NOW ≤7 days / UPCOMING >7 days) with confidence scores. "Lock In Order" → HTMX `204 + HX-Redirect` to pre-filled PR create. Refresh button + 60–90s auto-polling on forecast page and dashboards. Shared enrichment via `forecasting/selectors.py` (`get_radar_alerts`).
+* **Forecasting Tab:** 3-tab interface — Consumption Forecast (stockout risk, HTMX risk filter with `hx-push-url`) + Supplier Radar (delivery windows) + Stockout Timeline (Chart.js bar colored by combined risk). Dual-mode badges show combined risk source. Shared partials `_forecast_table.html` / `_radar_panel.html` reused by forecast page and Owner "View All" HTMX partial.
 ## Module 3: PO Manager & Predictive Procurement
 The core innovation of the Capstone project.
 * **Function:** Proactive alerts based on dual-mode forecasting. Instead of manually checking stock, the system generates alerts (e.g., "Expected to run out of Chicken Wings by Saturday" / "Supplier typically delivers in 3 days").

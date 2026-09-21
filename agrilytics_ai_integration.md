@@ -130,25 +130,30 @@ python manage.py compute_forecasts --rhythm-only
 
 ## 4. Django API Endpoints (HTMX Partials)
 
+Shared enrichment lives in `forecasting/selectors.py` — single source used by
+both `forecasting/views.forecast` and `dashboard/views.forecast_partial`:
+
+```python
+# forecasting/selectors.py
+def get_radar_alerts(days_ahead=30, min_confidence=0.1, limit=20):
+    predictions = get_upcoming_deliveries(
+        days_ahead=days_ahead, min_confidence=min_confidence
+    )[:limit]
+    ...
+    # -> [{"prediction": p, "days_until_window": n,
+    #      "urgency": "CONTACT_NOW"|"UPCOMING",
+    #      "confidence_pct": int(...)}]
+```
+
 ### Procurement Radar (HTMX Partial)
 ```python
 # forecasting/views.py
 @role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER, Profile.Role.MANAGER)
 def procurement_radar(request):
-    predictions = get_upcoming_deliveries(days_ahead=30, min_confidence=0.1)
-    
-    enriched = []
-    for p in predictions:
-        days_until = (p.predicted_window_start - timezone.now().date()).days
-        urgency = "CONTACT_NOW" if days_until <= 7 else "UPCOMING"
-        enriched.append({
-            "prediction": p,
-            "days_until_window": days_until,
-            "urgency": urgency,
-            "confidence_pct": int(p.confidence_score * 100),
-        })
-    
-    return render(request, "forecasting/_procurement_radar.html", {"alerts": enriched})
+    enriched = get_radar_alerts(days_ahead=30, min_confidence=0.1, limit=20)
+    # Preserve caller target id so hx-swap outerHTML replaces correctly
+    radar_id = request.GET.get("radar_id") or request.headers.get("HX-Target") or "procurement-radar"
+    return render(request, "forecasting/_procurement_radar.html", {"alerts": enriched, "radar_id": radar_id})
 ```
 
 ### Convert Radar Alert → ProcurementRequest
@@ -157,6 +162,10 @@ def procurement_radar(request):
 def radar_create_pr(request, prediction_id):
     pred = get_object_or_404(SupplierDeliveryPrediction, pk=prediction_id)
     url = reverse("procurement_create") + f"?ingredient={pred.ingredient.pk}&supplier={pred.supplier.pk}&qty={pred.estimated_volume}&reason=Radar:+predicted+delivery+window+{pred.predicted_window_start}+to+{pred.predicted_window_end}&priority=HIGH"
+    if is_htmx(request):
+        resp = HttpResponse(status=204)
+        resp["HX-Redirect"] = url  # HTMX follows via header; plain POST uses redirect()
+        return resp
     return redirect(url)
 ```
 
@@ -164,7 +173,7 @@ def radar_create_pr(request, prediction_id):
 ```python
 # forecasting/urls.py
 path("radar/", procurement_radar, name="procurement_radar"),
-path("radar/<int:pk>/order/", radar_create_pr, name="radar_create_pr"),
+path("radar/<int:prediction_id>/order/", radar_create_pr, name="radar_create_pr"),
 ```
 
 ---
@@ -172,55 +181,56 @@ path("radar/<int:pk>/order/", radar_create_pr, name="radar_create_pr"),
 ## 5. Django Template Integration (UI)
 
 ### HTMX Partial: `forecasting/_procurement_radar.html`
+
+Brand-aligned Bootstrap cards (Waxi `#871F09`/`#FE5F10`), not Tailwind utilities.
+Supports `radar_id` so owner/manager/forecast polling targets replace correctly.
+
 ```html
-<div class="procurement-radar" id="procurement-radar">
-  {% if alerts %}
-    <div class="space-y-2">
-      {% for item in alerts %}
-        {% with p=item.prediction %}
-          <div class="p-3 border-l-4 rounded-r 
-            {% if item.urgency == 'CONTACT_NOW' %}border-red-500 bg-red-50{% else %}border-blue-500 bg-blue-50{% endif %}">
-            <div class="flex justify-between items-start">
-              <div>
-                <strong class="text-sm">{{ p.supplier.company_name }}</strong>
-                <span class="text-xs text-gray-500 ml-2">{{ p.ingredient.name }} ({{ p.ingredient.unit }})</span>
-              </div>
-              <div class="text-right">
-                <span class="inline-block px-2 py-0.5 text-xs font-semibold rounded 
-                  {% if item.urgency == 'CONTACT_NOW' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">
-                  {{ item.urgency }}
-                </span>
-                <span class="ml-2 text-xs text-gray-600">{{ item.days_until_window }} days</span>
-              </div>
-            </div>
-            <div class="mt-1 flex flex-wrap gap-3 text-xs text-gray-700">
-              <span>Est. Volume: <strong>{{ p.estimated_volume }} {{ p.ingredient.unit }}</strong></span>
-              <span>Window: <strong>{{ p.predicted_window_start|date:"M d" }} - {{ p.predicted_window_end|date:"M d" }}</strong></span>
-              <span>Cycle: <strong>{{ p.predicted_cycle_days }}d</strong></span>
-              <span class="px-2 py-0.5 bg-gray-200 rounded">Conf: {{ item.confidence_pct }}%</span>
-            </div>
-            <div class="mt-2">
-              <form hx-post="{% url 'forecasting:radar_create_pr' p.pk %}" hx-target="#procurement-radar" hx-swap="outerHTML">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm {% if item.urgency == 'CONTACT_NOW' %}btn-danger{% else %}btn-primary{% endif %}">
-                  <i class="bi bi-cart-plus me-1"></i> Lock In Order
-                </button>
-              </form>
-            </div>
-          </div>
-        {% endwith %}
-      {% endfor %}
+<div class="procurement-radar" id="{{ radar_id|default:'procurement-radar' }}">
+  {% for item in alerts %}
+    {% with p=item.prediction %}
+    <div class="radar-card {% if item.urgency == 'CONTACT_NOW' %}urgent{% else %}soon{% endif %}">
+      <div class="d-flex justify-content-between align-items-start gap-2">
+        <div>
+          <strong>{{ p.supplier.company_name }}</strong>
+          <span class="text-muted">{{ p.ingredient.name }} ({{ p.ingredient.unit }})</span>
+        </div>
+        <div class="text-end">
+          <span class="risk risk-{{ item.urgency|lower }}">{{ item.urgency }}</span>
+          <span class="text-muted">{{ item.days_until_window }}d</span>
+        </div>
+      </div>
+      <div class="radar-meta">
+        <span>Est. <strong>{{ p.estimated_volume }} {{ p.ingredient.unit }}</strong></span>
+        <span>Window <strong>{{ p.predicted_window_start|date:"M d" }}–{{ p.predicted_window_end|date:"M d" }}</strong></span>
+        <span>Cycle <strong>{{ p.predicted_cycle_days }}d</strong></span>
+        <span class="risk risk-low">Conf {{ item.confidence_pct }}%</span>
+      </div>
+      <div class="radar-actions">
+        <form hx-post="{% url 'forecasting:radar_create_pr' p.pk %}" hx-swap="none">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-primary">
+            <i class="bi bi-cart-plus me-1"></i> Lock In Order
+          </button>
+        </form>
+      </div>
     </div>
-  {% else %}
-    <div class="text-center py-4 text-gray-500">No upcoming delivery windows predicted.</div>
-  {% endif %}
+    {% endwith %}
+  {% empty %}
+    <div class="empty-mini">No upcoming delivery windows predicted.</div>
+  {% endfor %}
 </div>
 ```
 
+Shared wrappers: `forecasting/_forecast_table.html` (consumption table + Dual badges)
+and `forecasting/_radar_panel.html` (panel + Refresh + optional 60s polling) are
+included by both `forecasting/dashboard.html` and `forecasting/_forecast_tabs.html`
+(Owner "View All" HTMX partial) — no duplicated markup.
+
 ### Dashboard Integration
-- **Owner Dashboard**: Full panel with top 5 predictions
-- **Manager Dashboard**: Collapsible panel with top 5 predictions  
-- **Forecasting Page**: Dedicated "Supplier Radar" tab with all predictions
+- **Owner Dashboard**: Forecast Highlights show dual `combined_risk + Dual` badge; radar panel with Refresh + 90s polling (`#procurement-radar-owner`)
+- **Manager Dashboard**: Radar panel with Refresh + 90s polling (`#procurement-radar-manager`)
+- **Forecasting Page**: 3 tabs — Consumption Forecast (HTMX risk filter with `hx-push-url`), Supplier Radar (60s polling), Stockout Timeline (Chart.js bar colored by combined risk)
 
 ---
 
@@ -274,7 +284,7 @@ The system combines two forecasting modes:
 | REST API + React | HTMX partials + template includes |
 | `numpy` for stats | Python `statistics` module (stdlib) |
 | Separate cache table | Django model `SupplierDeliveryPrediction` |
-| React `ProcurementRadar` component | Django template partial `_procurement_radar.html` |
-| `Lock In Order` → POST to API | HTMX form POST → redirect to PR create |
+| React `ProcurementRadar` component | Django template partial `_procurement_radar.html` (Bootstrap + Waxi brand) |
+| `Lock In Order` → POST to API | HTMX form POST → `204 + HX-Redirect` to pre-filled PR create (plain POST falls back to `redirect()`) |
 
 The Django-native implementation is simpler, more maintainable, and leverages the existing authentication/authorization system.

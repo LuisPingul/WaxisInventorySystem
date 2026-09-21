@@ -12,9 +12,10 @@ Deploy the Django monolith to Render Free tier + Supabase Free Singapore, no Ver
 
 ---
 
-## 🟢 SESSION STATE (2026-09-18) — **RESUME HERE**
+## 🟢 SESSION STATE (2026-09-22) — **RESUME HERE**
 
 ### ✅ COMPLETED
+- Forecasting UI finished (`c568432`): `forecasting/selectors.py` shared enrichment, brand-aligned radar (`radar-card`), HTMX `HX-Redirect` order flow, deduplicated `_forecast_table.html`/`_radar_panel.html` partials, dual-risk owner highlights, timeline chart, variance UI, radar polling
 - `requirements.txt`: Django 4.2 LTS, `gunicorn>=22.0` `whitenoise>=6.6` `dj-database-url>=2.2` (no `google-generativeai`)
 - `config/settings.py`: `DATABASE_URL` pooler parse (`ssl_require=True`, `conn_max_age=0`), `ALLOWED_HOSTS .onrender.com` auto, `CSRF_TRUSTED_ORIGINS`, `STATIC_ROOT` + `WhiteNoise`, `SECURE_PROXY_SSL_HEADER`, `sslmode=require` fallback
 - `.env.example`: + `DATABASE_URL`, `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`
@@ -62,5 +63,5 @@ Deploy the Django monolith to Render Free tier + Supabase Free Singapore, no Ver
 - `GET /reports/` `200` turnover/waste reports
 - `GET /procurement/<pk>/email/` → **Deterministic template** (no LLM)
 - `Cron → Run Now` → `Forecasts computed: X ingredients, Y rhythms` `AuditLog CRON_FORECAST`
-- `GET /dashboard/forecast-partial/` → HTMX forecast tabs load
+- `GET /forecast-partial/` → HTMX forecast tabs load
 - `GET /forecast/radar/` → Procurement Radar shows CONTACT_NOW/UPCOMING
