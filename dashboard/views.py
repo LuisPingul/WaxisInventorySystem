@@ -3,14 +3,78 @@ import json
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
+from django.utils import timezone
 
 from accounts.models import Profile
 from inventory.models import Ingredient, StockTransaction
 from procurement.models import ProcurementRequest
 
 from .services import dashboard_context
-from procurement.services import generate_executive_summary
-from forecasting.services import generate_all_forecasts
+
+
+def generate_executive_summary(context_dict):
+    """Generate structured HTML executive summary with enumerated items and explanations."""
+    total = context_dict.get("total", 0)
+    low = context_dict.get("low", 0)
+    critical = context_dict.get("critical", 0)
+    pending = context_dict.get("pending", 0)
+    distribution = context_dict.get("distribution", [])
+
+    cat_parts = []
+    for d in distribution:
+        cat_name = d.get("category", "")
+        cat_count = d.get("count", 0)
+        if cat_count > 0:
+            cat_parts.append(f"{cat_name}: {cat_count}")
+    cat_summary = ", ".join(cat_parts) if cat_parts else "No category data"
+
+    if critical > 0:
+        header = '⚠️ IMMEDIATE ACTION REQUIRED'
+        header_class = 'text-danger'
+        recommendation = 'Approve all HIGH-risk PRs today; contact top 3 suppliers for expedited delivery on critical items.'
+        rec_class = 'bg-danger-subtle border-danger'
+        items = [
+            ('Critical Stock', f'{critical} ingredient(s) CRITICAL/OUT of stock', 'Requires immediate procurement approval and expedited delivery'),
+            ('Low Stock', f'{low} ingredient(s) below minimum threshold', 'Schedule reorders within 24 hours to prevent stockout'),
+            ('Pending PRs', f'{pending} procurement request(s) awaiting approval', 'Bottleneck risk — prioritize review and approval today'),
+            ('Category Breakdown', cat_summary, 'FROZEN and CHILLED items typically have shorter shelf life — monitor closely'),
+        ]
+    elif low > 0:
+        header = '📋 MONITORING NEEDED'
+        header_class = 'text-warning'
+        recommendation = 'Review LOW items for reorder prioritization; ensure pending PRs are processed within 48 hours.'
+        rec_class = 'bg-warning-subtle border-warning'
+        items = [
+            ('Low Stock', f'{low} ingredient(s) below minimum threshold', 'Schedule reorders within 48 hours to prevent escalation to critical'),
+            ('Pending PRs', f'{pending} procurement request(s) awaiting approval', 'Process pending orders to maintain supply chain continuity'),
+            ('Category Breakdown', cat_summary, 'Review DRY goods inventory — longest lead times typically'),
+        ]
+    else:
+        header = '✅ INVENTORY HEALTHY'
+        header_class = 'text-success'
+        recommendation = 'Maintain current monitoring cadence; review supplier delivery rhythms weekly for proactive ordering.'
+        rec_class = 'bg-success-subtle border-success'
+        items = [
+            ('Total Tracked', f'{total} ingredients across all categories', 'Full visibility maintained across DRY, CHILLED, FROZEN'),
+            ('Pending PRs', f'{pending} pending procurement request(s)', 'Normal pipeline — no immediate action required'),
+            ('Category Breakdown', cat_summary, 'Balanced distribution — no category over/under-represented'),
+        ]
+
+    # Build HTML
+    items_html = ''.join(
+        f'<li><strong>{label}:</strong> {value} — <span class="text-muted">{explanation}</span></li>'
+        for label, value, explanation in items
+    )
+
+    return f'''
+<div class="executive-summary">
+  <h6 class="{header_class} mb-2">{header}</h6>
+  <ol class="mb-3 small">{items_html}</ol>
+  <div class="recommendation p-2 rounded {rec_class}">
+    <strong>🎯 Recommendation:</strong> {recommendation}
+  </div>
+</div>
+'''.strip()
 
 
 @login_required
@@ -53,6 +117,10 @@ def manager_dashboard(request):
     if request.GET.get("ai") == "1":
         snap = {"total": ctx["total"], "low": ctx["low"], "critical": ctx["critical"], "pending": ctx["pending"], "distribution": ctx["distribution"]}
         ai_summary = generate_executive_summary(snap)
+    # Procurement Radar for manager (collapsible)
+    from forecasting.selectors import get_radar_alerts
+
+    radar_alerts = get_radar_alerts(days_ahead=30, min_confidence=0.1, limit=5)
     return render(request, "dashboard/manager.html", {
         "ingredients": ctx["ingredients"],
         "total": ctx["total"],
@@ -65,15 +133,15 @@ def manager_dashboard(request):
         "chart_data": _chart_data(ctx["distribution"]),
         "weekly_movements": ctx["weekly_movements"],
         "ai_summary": ai_summary,
+        "radar_alerts": radar_alerts,
     })
 
 
 @login_required
 def owner_dashboard(request):
     ctx = dashboard_context()
-    # Owner always gets AI summary (cached per request)
+    # Owner always gets executive summary (cached per request)
     snap = {"total": ctx["total"], "low": ctx["low"], "critical": ctx["critical"], "pending": ctx["pending"], "distribution": ctx["distribution"]}
-    # Only call Gemini if ?ai param or on demand to save quota - here auto on owner
     ai_summary = None
     if request.GET.get("ai") != "0":
         try:
@@ -82,9 +150,15 @@ def owner_dashboard(request):
             ai_summary = None
     # Forecast highlights for owner
     try:
-        forecast_rows = generate_all_forecasts()[:5]
+        from forecasting.selectors import get_enriched_rows
+
+        forecast_rows = get_enriched_rows(days_window=30)[:5]
     except Exception:
         forecast_rows = []
+    # Procurement Radar - upcoming supplier delivery windows
+    from forecasting.selectors import get_radar_alerts as _get_radar
+
+    radar_alerts = _get_radar(days_ahead=30, min_confidence=0.1, limit=5)
     return render(request, "dashboard/owner.html", {
         "ingredients": ctx["ingredients"],
         "total": ctx["total"],
@@ -98,6 +172,7 @@ def owner_dashboard(request):
         "weekly_movements": ctx["weekly_movements"],
         "ai_summary": ai_summary,
         "forecast_highlights": forecast_rows,
+        "radar_alerts": radar_alerts,
     })
 
 
@@ -110,6 +185,16 @@ def ai_summary_view(request):
         return render(request, "dashboard/_ai_summary.html", {"ai_summary": summary})
     messages.info(request, summary)
     return redirect("dashboard:home")
+
+
+@login_required
+def forecast_partial(request):
+    """HTMX partial: Full forecast tabs content for Owner dashboard."""
+    from forecasting.selectors import build_forecast_context
+
+    risk_filter = request.GET.get("risk", "")
+    ctx = build_forecast_context(days_window=30, risk_filter=risk_filter, radar_limit=20)
+    return render(request, "forecasting/_forecast_tabs.html", ctx)
 
 
 @login_required

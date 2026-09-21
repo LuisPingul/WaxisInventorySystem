@@ -3,7 +3,9 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 
 from accounts.decorators import role_required
 from accounts.models import Profile
@@ -109,73 +111,107 @@ def transactions(request):
         qs = qs.filter(user=request.user)
     return render(request, "inventory/transactions.html", {"transactions": qs[:300]})
 
+from django.core.paginator import Paginator
+from django.template.loader import render_to_string
+
+
 @role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER, Profile.Role.MANAGER, Profile.Role.CREW)
-def deduct_stock(request):
-    form = StockDeductionForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        ingredient_id = form.cleaned_data["ingredient"].pk
-        amount = form.cleaned_data["quantity"]
-        reason = form.cleaned_data["reason"]
+def deduct_stock(request, item_id=None):
+    # Single item mode - HTMX partial or full card
+    if item_id:
+        ingredient = get_object_or_404(Ingredient, pk=item_id)
+        
+        if request.method == "POST":
+            form = StockDeductionForm(request.POST, initial_ingredient=ingredient)
+            if form.is_valid():
+                amount = form.cleaned_data["deduct_quantity"]
+                reason = form.cleaned_data["transaction_reason"]
+                
+                with transaction.atomic():
+                    ingredient = Ingredient.objects.select_for_update().get(pk=item_id)
+                    if amount > ingredient.quantity:
+                        form.add_error("deduct_quantity", f"Only {ingredient.quantity} {ingredient.unit} is currently available.")
+                    else:
+                        previous = ingredient.quantity
+                        ingredient.quantity = ingredient.quantity - amount
+                        ingredient.save(update_fields=["quantity", "updated_at"])
 
-        with transaction.atomic():
-            ingredient = Ingredient.objects.select_for_update().get(pk=ingredient_id)
-            if amount > ingredient.quantity:
-                form.add_error("quantity", f"Only {ingredient.quantity} {ingredient.unit} is currently available.")
-            else:
-                previous = ingredient.quantity
-                ingredient.quantity = ingredient.quantity - amount
-                ingredient.save(update_fields=["quantity", "updated_at"])
+                        # Map reason to transaction_type for SDG 12 tracking
+                        tx_type = StockTransaction.Type.DEDUCTED
+                        if reason in ("SPOILAGE_WASTE", "DAMAGED"):
+                            tx_type = StockTransaction.Type.SPOILAGE
+                        # Also detect if ingredient hit zero for AI variance logging
+                        hit_zero = ingredient.quantity == 0
+                        actual_zero_date = None
+                        if hit_zero:
+                            from django.utils import timezone
+                            actual_zero_date = timezone.now().date()
 
-                # Map reason to transaction_type for SDG 12 tracking
-                tx_type = StockTransaction.Type.DEDUCTED
-                if reason in ("SPOILAGE_WASTE", "DAMAGED"):
-                    tx_type = StockTransaction.Type.SPOILAGE
-                # Also detect if ingredient hit zero for AI variance logging
-                hit_zero = ingredient.quantity == 0
-                actual_zero_date = None
-                if hit_zero:
-                    from django.utils import timezone
-                    actual_zero_date = timezone.now().date()
+                        StockTransaction.objects.create(
+                            ingredient=ingredient,
+                            user=request.user,
+                            transaction_type=tx_type,
+                            quantity=amount,
+                            previous_stock=previous,
+                            remaining_stock=ingredient.quantity,
+                            reason=reason,
+                            notes=reason.replace("_", " ").title(),
+                        )
+                        # Log AI variance if hit zero
+                        if hit_zero and actual_zero_date:
+                            try:
+                                from forecasting.models import AIProcurementAlert
+                                pending = AIProcurementAlert.objects.filter(
+                                    ingredient=ingredient, predicted_stockout_date__isnull=False, actual_zero_date__isnull=True
+                                ).order_by("-created_at").first()
+                                if pending:
+                                    pending.actual_zero_date = actual_zero_date
+                                    pending.save(update_fields=["actual_zero_date", "variance_days", "updated_at"])
+                            except Exception:
+                                pass
 
-                StockTransaction.objects.create(
-                    ingredient=ingredient,
-                    user=request.user,
-                    transaction_type=tx_type,
-                    quantity=amount,
-                    previous_stock=previous,
-                    remaining_stock=ingredient.quantity,
-                    reason=reason,
-                    notes=reason.replace("_", " ").title(),
-                )
-                # Log AI variance if hit zero
-                if hit_zero and actual_zero_date:
-                    try:
-                        from forecasting.models import AIProcurementAlert
-                        pending = AIProcurementAlert.objects.filter(
-                            ingredient=ingredient, predicted_stockout_date__isnull=False, actual_zero_date__isnull=True
-                        ).order_by("-created_at").first()
-                        if pending:
-                            pending.actual_zero_date = actual_zero_date
-                            pending.save(update_fields=["actual_zero_date", "variance_days", "updated_at"])
-                    except Exception:
-                        pass
+                        log_action(
+                            request.user,
+                            "STOCK DEDUCTION",
+                            "Inventory",
+                            ingredient.pk,
+                            f"{ingredient.name}: {previous} {ingredient.unit} -> {ingredient.quantity} {ingredient.unit}; quantity deducted: {amount} {ingredient.unit}.",
+                        )
 
-                log_action(
-                    request.user,
-                    "STOCK DEDUCTION",
-                    "Inventory",
-                    ingredient.pk,
-                    f"{ingredient.name}: {previous} {ingredient.unit} -> {ingredient.quantity} {ingredient.unit}; quantity deducted: {amount} {ingredient.unit}.",
-                )
+                        if ingredient.status in {"LOW", "CRITICAL", "OUT"}:
+                            messages.warning(
+                                request,
+                                f"{ingredient.name} is now {ingredient.status_label.lower()}.",
+                            )
+                        else:
+                            messages.success(request, "Stock deduction recorded successfully.")
 
-                if ingredient.status in {"LOW", "CRITICAL", "OUT"}:
-                    messages.warning(
-                        request,
-                        f"{ingredient.name} is now {ingredient.status_label.lower()}.",
-                    )
-                else:
-                    messages.success(request, "Stock deduction recorded successfully.")
+                # Return updated card partial for HTMX swap
+                if request.htmx:
+                    form = StockDeductionForm(initial_ingredient=ingredient)
+                    html = render_to_string("inventory/_deduct_card.html", {
+                        "item": ingredient, "form": form, "disabled": ingredient.quantity == 0
+                    }, request=request)
+                    response = HttpResponse(html)
+                    response["HX-Trigger"] = "showToast"  # Trigger toast
+                    return response
+                
+                return redirect("deduct_stock")
+        
+        # GET - return card partial for HTMX or full page
+        form = StockDeductionForm(initial_ingredient=ingredient)
+        return render(request, "inventory/_deduct_card.html", {
+            "item": ingredient, "form": form, "disabled": ingredient.quantity == 0
+        })
 
-                return redirect("transactions")
-
-    return render(request, "inventory/deduct.html", {"form": form})
+    # List mode - full page with search, NO pagination
+    search = request.GET.get("q", "").strip()
+    
+    qs = Ingredient.objects.order_by("name")
+    if search:
+        qs = qs.filter(name__icontains=search)
+    
+    return render(request, "inventory/deduct.html", {
+        "ingredients": qs,  # ALL ingredients, no pagination
+        "search_query": search,
+    })

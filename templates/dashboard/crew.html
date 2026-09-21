@@ -29,35 +29,37 @@
 </div>
 
 
-<div class="crew-action-card">
+<div class="stats-grid two">
 
-    <div>
 
-        <span class="eyebrow">
-            Kitchen Operations
+    <div class="stat-card">
+
+        <span>
+            My Transactions
         </span>
 
-        <h2>
-            Record an ingredient deduction
-        </h2>
+        <strong>
+            {{ today_count }}
+        </strong>
 
-        <p>
-            Keep inventory updated while preparing orders.
-        </p>
+        <i class="bi bi-clock-history"></i>
 
     </div>
 
 
-    <a
-        href="{% url 'deduct_stock' %}"
-        class="btn btn-primary btn-lg"
-    >
+    <div class="stat-card warning">
 
-        <i class="bi bi-dash-circle me-2"></i>
+        <span>
+            Stock Alerts
+        </span>
 
-        Deduct Stock
+        <strong>
+            {{ low|length }}
+        </strong>
 
-    </a>
+        <i class="bi bi-bell"></i>
+
+    </div>
 
 </div>
 
@@ -196,7 +198,6 @@
             </small>
 
         </div>
-
 
         {% empty %}
 

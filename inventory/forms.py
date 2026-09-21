@@ -30,24 +30,38 @@ class IngredientForm(forms.ModelForm):
 class StockDeductionForm(forms.Form):
     ingredient = forms.ModelChoiceField(
         queryset=Ingredient.objects.none(),
-        widget=forms.Select(attrs={"class": "form-select form-select-lg"})
+        required=False,
+        widget=forms.HiddenInput()
     )
-    quantity = forms.DecimalField(
+    deduct_quantity = forms.DecimalField(
         min_value=0.01,
         max_digits=12,
         decimal_places=2,
-        widget=forms.NumberInput(attrs={"class": "form-control form-control-lg", "step": "0.01", "min": "0.01"})
+        widget=forms.NumberInput(attrs={
+            "class": "w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 "
+                     "focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all",
+            "step": "0.01", "min": "0.01"
+        })
     )
-    reason = forms.ChoiceField(
+    transaction_reason = forms.ChoiceField(
         choices=[
             ("NORMAL_USAGE", "Normal Usage"),
             ("SPOILAGE_WASTE", "Spoilage/Waste"),
             ("DAMAGED", "Damaged"),
             ("OTHER", "Other"),
         ],
-        widget=forms.Select(attrs={"class": "form-select form-select-lg"})
+        widget=forms.Select(attrs={
+            "class": "w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 "
+                     "focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent "
+                     "transition-all appearance-none bg-white",
+            "required": True
+        })
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, initial_ingredient=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["ingredient"].queryset = Ingredient.objects.order_by("name")
+        if initial_ingredient:
+            self.fields["ingredient"].initial = initial_ingredient
+            self.fields["ingredient"].widget = forms.HiddenInput()
+            self.fields["ingredient"].required = False

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Ingredient, StockTransaction
+from .models import Ingredient, StockTransaction, InboundShipment
 
 @admin.register(Ingredient)
 class IngredientAdmin(admin.ModelAdmin):
@@ -13,3 +13,13 @@ class StockTransactionAdmin(admin.ModelAdmin):
     list_filter = ("transaction_type", "reason")
     search_fields = ("ingredient__name", "user__username", "reason", "notes")
     readonly_fields = ("created_at",)
+
+
+@admin.register(InboundShipment)
+class InboundShipmentAdmin(admin.ModelAdmin):
+    list_display = ("received_at", "supplier", "ingredient", "quantity_received", "unit_cost", "procurement_request")
+    list_filter = ("supplier", "ingredient")
+    search_fields = ("supplier__company_name", "ingredient__name", "notes")
+    readonly_fields = ("created_at",)
+    date_hierarchy = "received_at"
+    ordering = ["-received_at"]

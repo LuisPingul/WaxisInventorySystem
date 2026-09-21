@@ -1,55 +1,12 @@
-import os
 import logging
 from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
-# Gemini prompt template for PO email
-PO_EMAIL_PROMPT = """You are a professional procurement assistant for Waxi's (SND Foods International Inc.).
-Generate a concise, formal Purchase Order email to a supplier.
-
-Context:
-- Supplier: {supplier_name} ({supplier_email}) - Contact: {contact_person}
-- Ingredient: {ingredient_name} ({category}) - Stock: {current_stock} {unit} (min {min_stock}, max {max_stock})
-- Requested Quantity: {qty} {unit}
-- Priority: {priority}
-- Reason: {reason}
-- Requested by: {requested_by}
-
-Requirements:
-- Subject line starting with "Purchase Order Request - "
-- Polite greeting, state quantity/unit, delivery expectation (lead time {lead_time} days)
-- Mention Waxi's standard delivery address placeholder and contact for confirmation
-- Professional closing with Waxi's Procurement Team signature
-- Keep under 180 words, no markdown, plain text email body.
-
-Return ONLY the email body with subject as first line 'Subject: ...'."""
-
-
-def _get_genai():
-    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        return None, None
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        # API now requires gemini-3.6-flash (2.5 no longer available to new users)
-        for name in ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-3.6-flash", "gemini-3.5-flash-lite"]:
-            try:
-                model = genai.GenerativeModel(name)
-                return genai, model
-            except Exception:
-                continue
-        model = genai.GenerativeModel("gemini-3.6-flash")
-        return genai, model
-    except Exception as e:
-        logger.warning("Gemini init failed: %s", e)
-        return None, None
-
 
 def generate_po_email(procurement_request):
     """
-    Generate PO email body via Gemini. Falls back to deterministic template if no API key.
+    Generate PO email body using deterministic template.
     Returns (subject, body)
     """
     ing = procurement_request.ingredient
@@ -59,85 +16,91 @@ def generate_po_email(procurement_request):
     supplier_email = getattr(supplier, "email", "") or "supplier@example.com"
     contact_person = getattr(supplier, "contact_person", "") or "Procurement Contact"
     lead_time = getattr(supplier, "lead_time_days", 3)
+    supplier_rating = getattr(supplier, "rating", None)
 
     qty = procurement_request.requested_quantity
-    prompt = PO_EMAIL_PROMPT.format(
-        supplier_name=supplier_name,
-        supplier_email=supplier_email,
-        contact_person=contact_person,
-        ingredient_name=ing.name,
-        category=ing.get_category_display(),
-        current_stock=ing.quantity,
-        unit=ing.unit,
-        min_stock=ing.minimum_stock,
-        max_stock=ing.maximum_stock,
-        qty=qty,
-        priority=procurement_request.get_priority_display(),
-        reason=procurement_request.reason or "Restocking - low inventory",
-        requested_by=getattr(procurement_request.requested_by, "username", "Waxi's System"),
-        lead_time=lead_time,
+    priority_display = procurement_request.get_priority_display()
+    reason = procurement_request.reason or "Restocking - low inventory"
+    requested_by = getattr(procurement_request.requested_by, "username", "Waxi's System")
+
+    # Priority-specific language
+    priority_phrases = {
+        "CRITICAL": "URGENT - Critical stock level",
+        "HIGH": "High priority - Stock running low",
+        "NORMAL": "Normal priority - Scheduled restock",
+        "LOW": "Low priority - Advance planning",
+    }
+    priority_note = priority_phrases.get(procurement_request.priority, "Restocking")
+
+    subject = f"Purchase Order Request - {ing.name} ({qty} {ing.unit})"
+
+    body = (
+        f"Subject: {subject}\n\n"
+        f"Dear {contact_person} at {supplier_name},\n\n"
+        f"{priority_note}: We would like to place a purchase order for "
+        f"{qty} {ing.unit} of {ing.name} ({ing.get_category_display()}).\n\n"
+        f"Current Inventory Status:\n"
+        f"  - Current Stock: {ing.quantity} {ing.unit}\n"
+        f"  - Minimum Threshold: {ing.minimum_stock} {ing.unit}\n"
+        f"  - Maximum Capacity: {ing.maximum_stock} {ing.unit}\n\n"
+        f"Order Details:\n"
+        f"  - Priority: {priority_display}\n"
+        f"  - Reason: {reason}\n"
+        f"  - Requested by: {requested_by}\n"
+        f"  - Expected Lead Time: {lead_time} business days\n"
+        f"{f'  - Supplier Rating: {supplier_rating}/5.00' if supplier_rating else ''}\n\n"
+        f"Please confirm availability, pricing, and expected delivery date within {lead_time} days "
+        f"to Waxi's main kitchen facility.\n\n"
+        f"Kindly acknowledge receipt of this order and provide an estimated delivery schedule.\n\n"
+        f"Thank you for your prompt attention to this matter.\n\n"
+        f"Best regards,\n"
+        f"Waxi's Procurement Team\n"
+        f"SND Foods International Inc.\n"
+        f"Email: procurement@waxis.local\n"
+        f"Phone: +63-xxx-xxx-xxxx"
     )
 
-    _, model = _get_genai()
-    if model is None:
-        # Deterministic fallback - no API key
-        subject = f"Purchase Order Request - {ing.name} ({qty} {ing.unit})"
-        body = (
-            f"Dear {contact_person} at {supplier_name},\n\n"
-            f"We would like to place a purchase order for {qty} {ing.unit} of {ing.name} "
-            f"({ing.get_category_display()}). Current stock is {ing.quantity} {ing.unit} (minimum {ing.minimum_stock}).\n"
-            f"Priority: {procurement_request.get_priority_display()}. Reason: {procurement_request.reason or 'Restocking'}.\n"
-            f"Please confirm availability and expected delivery within {lead_time} days to Waxi's main kitchen.\n\n"
-            f"Thank you for your prompt assistance.\n\n"
-            f"Best regards,\nWaxi's Procurement Team\nSND Foods International Inc.\n"
-            f"Contact: procurement@waxis.local"
-        )
-        return subject, body
-
-    try:
-        response = model.generate_content(prompt)
-        text = (response.text or "").strip()
-        if not text:
-            raise ValueError("Empty Gemini response")
-        lines = text.splitlines()
-        subject = lines[0].replace("Subject:", "").strip() if lines[0].lower().startswith("subject:") else f"Purchase Order Request - {ing.name}"
-        body = "\n".join(lines[1:]).strip() if lines[0].lower().startswith("subject:") else text
-        if not body:
-            body = text
-        return subject, body
-    except Exception as e:
-        logger.error("Gemini generate failed: %s", e)
-        subject = f"Purchase Order Request - {ing.name} ({qty} {ing.unit})"
-        body = f"Dear {contact_person},\n\nRequesting {qty} {ing.unit} of {ing.name}. Please confirm delivery within {lead_time} days.\n\nWaxi's Procurement Team"
-        return subject, body
+    return subject, body
 
 
 def generate_executive_summary(context_dict):
     """
-    AI Executive Summary for dashboard.
-    context_dict: {total, low, critical, pending, distribution, recent_transactions}
+    Rule-based Executive Summary for dashboard.
+    context_dict: {total, low, critical, pending, distribution}
     """
-    _, model = _get_genai()
-    prompt = (
-        "You are Waxi's Inventory AI analyst. Given this operational snapshot, write a 3-4 sentence executive summary "
-        "with health assessment and 1 actionable recommendation. Be concise, data-driven, no markdown.\n\n"
-        f"Snapshot: {context_dict}\n\nSummary:"
-    )
-    if model is None:
-        # Fallback heuristic
-        total = context_dict.get("total", 0)
-        low = context_dict.get("low", 0)
-        critical = context_dict.get("critical", 0)
-        pending = context_dict.get("pending", 0)
-        if critical > 0:
-            return f"Operational attention needed: {critical} ingredient(s) critical/out, {low} low. {pending} procurement(s) pending. Prioritize restocking critical items and approving pending orders."
-        if low > 0:
-            return f"Inventory stable with {low} low-stock items out of {total}. {pending} procurement pending. Review low items for reorder."
-        return f"Inventory healthy: {total} ingredients tracked, no critical shortages, {pending} pending procurements. Maintain current monitoring."
+    total = context_dict.get("total", 0)
+    low = context_dict.get("low", 0)
+    critical = context_dict.get("critical", 0)
+    pending = context_dict.get("pending", 0)
+    distribution = context_dict.get("distribution", [])
 
-    try:
-        resp = model.generate_content(prompt)
-        return (resp.text or "").strip()[:600]
-    except Exception as e:
-        logger.error("Executive summary Gemini failed: %s", e)
-        return "Inventory overview generated. Review low and critical items for action."
+    # Category breakdown
+    cat_parts = []
+    for d in distribution:
+        cat_name = d.get("category", "")
+        cat_count = d.get("count", 0)
+        if cat_count > 0:
+            cat_parts.append(f"{cat_name}: {cat_count}")
+    cat_summary = ", ".join(cat_parts) if cat_parts else "No category data"
+
+    if critical > 0:
+        return (
+            f"⚠️ IMMEDIATE ACTION REQUIRED: {critical} ingredient(s) CRITICAL/OUT of stock, {low} LOW. "
+            f"{pending} procurement request(s) pending. "
+            f"Category distribution: {cat_summary}. "
+            f"RECOMMENDATION: Approve all HIGH-risk PRs today; contact top 3 suppliers for expedited delivery on critical items."
+        )
+    elif low > 0:
+        return (
+            f"📋 MONITORING NEEDED: {low} low-stock items out of {total} total ingredients. "
+            f"{pending} procurement request(s) pending. "
+            f"Category distribution: {cat_summary}. "
+            f"RECOMMENDATION: Review LOW items for reorder prioritization; ensure pending PRs are processed within 48 hours."
+        )
+    else:
+        return (
+            f"✅ INVENTORY HEALTHY: {total} ingredients tracked, no critical shortages. "
+            f"{pending} pending procurement request(s). "
+            f"Category distribution: {cat_summary}. "
+            f"RECOMMENDATION: Maintain current monitoring cadence; review supplier delivery rhythms weekly for proactive ordering."
+        )

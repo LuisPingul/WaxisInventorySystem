@@ -1,0 +1,19 @@
+{# Shared radar panel. Expects: radar_alerts, radar_id, poll (bool) #}
+<div class="panel">
+  <div class="panel-header">
+    <h3><i class="bi bi-radar me-1"></i> Procurement Radar — Upcoming Windows</h3>
+    <div class="d-flex gap-2 align-items-center">
+      <small class="text-muted d-none d-md-inline">Rhythm · min 3 deliveries</small>
+      <button class="btn btn-sm btn-light"
+        hx-get="{% url 'forecasting:procurement_radar' %}"
+        hx-target="#{{ radar_id|default:'procurement-radar' }}"
+        hx-swap="outerHTML">
+        <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+      </button>
+    </div>
+  </div>
+  <div class="p-3"
+    {% if poll %}hx-get="{% url 'forecasting:procurement_radar' %}" hx-trigger="every 60s" hx-target="#{{ radar_id|default:'procurement-radar' }}" hx-swap="outerHTML"{% endif %}>
+    {% include "forecasting/_procurement_radar.html" with alerts=radar_alerts radar_id=radar_id %}
+  </div>
+</div>

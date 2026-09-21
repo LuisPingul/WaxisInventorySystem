@@ -1,0 +1,13 @@
+<!-- Grid Container with Scroll -->
+<div class="h-[calc(100vh-350px)] overflow-y-auto pr-2" id="deduct-grid-container">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="deduct-grid">
+        {% for item in ingredients %}
+            {% include "inventory/_deduct_card.html" with item=item %}
+        {% empty %}
+            <div class="col-span-full text-center py-12">
+                <i class="bi bi-box-seam text-4xl text-gray-300"></i>
+                <p class="mt-3 text-gray-500">No ingredients found.</p>
+            </div>
+        {% endfor %}
+    </div>
+</div>

@@ -8,8 +8,17 @@ from procurement.models import ProcurementRequest
 
 def storage_distribution():
     qs = Ingredient.objects.values("category").annotate(count=Count("id"), total_qty=Sum("quantity")).order_by("category")
+    qs_list = list(qs)
     # Ensure all 3 categories present even if 0
-    return list(qs)
+    all_categories = ["DRY", "CHILLED", "FROZEN"]
+    existing = {item["category"] for item in qs_list}
+    for cat in all_categories:
+        if cat not in existing:
+            qs_list.append({"category": cat, "count": 0, "total_qty": 0})
+    # Sort by category order
+    cat_order = {"DRY": 0, "CHILLED": 1, "FROZEN": 2}
+    qs_list.sort(key=lambda x: cat_order.get(x["category"], 99))
+    return qs_list
 
 
 def dashboard_context():

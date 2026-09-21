@@ -1,31 +1,26 @@
 from django.contrib import messages
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from accounts.decorators import role_required
 from accounts.models import Profile
 from audit.services import log_action
 from procurement.models import ProcurementRequest
 
-from .models import AIProcurementAlert
+from .models import AIProcurementAlert, SupplierDeliveryPrediction
+from .selectors import build_forecast_context, is_htmx
 from .services import generate_all_forecasts
 
 
 @role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER, Profile.Role.MANAGER)
 def forecast(request):
-    rows = generate_all_forecasts(days_window=30)
-    alerts_pending = AIProcurementAlert.objects.filter(status=AIProcurementAlert.Status.PENDING).select_related("ingredient")[:20]
-
-    # Optional filter by risk
     risk_filter = request.GET.get("risk", "")
-    if risk_filter:
-        rows = [r for r in rows if r["risk"] == risk_filter]
-
-    return render(request, "forecasting/dashboard.html", {
-        "rows": rows,
-        "alerts": alerts_pending,
-        "selected_risk": risk_filter,
-        "total_alerts_pending": AIProcurementAlert.objects.filter(status=AIProcurementAlert.Status.PENDING).count(),
-    })
+    ctx = build_forecast_context(days_window=30, risk_filter=risk_filter, radar_limit=20)
+    if is_htmx(request):
+        # Risk filter via HTMX targets #tab-consumption — return table only
+        return render(request, "forecasting/_forecast_table.html", ctx)
+    return render(request, "forecasting/dashboard.html", ctx)
 
 
 @role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER, Profile.Role.MANAGER)
@@ -95,3 +90,31 @@ def alert_reject(request, pk):
     log_action(request.user, "REJECT", "Forecasting", alert.pk, "AI alert rejected.")
     messages.success(request, "Alert rejected.")
     return redirect("forecasting:forecast")
+
+
+@role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER, Profile.Role.MANAGER)
+def procurement_radar(request):
+    """HTMX partial: Active Hunter Radar - upcoming supplier delivery windows"""
+    from .selectors import get_radar_alerts
+
+    enriched = get_radar_alerts(days_ahead=30, min_confidence=0.1, limit=20)
+    # Preserve caller target id so hx-swap outerHTML replaces correctly
+    radar_id = request.GET.get("radar_id") or request.headers.get("HX-Target") or "procurement-radar"
+    radar_id = str(radar_id).lstrip("#").strip() or "procurement-radar"
+    return render(
+        request, "forecasting/_procurement_radar.html", {"alerts": enriched, "radar_id": radar_id}
+    )
+
+
+@role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER, Profile.Role.MANAGER)
+def radar_create_pr(request, prediction_id):
+    """Convert radar alert -> ProcurementRequest (pre-filled). HTMX-aware."""
+    pred = get_object_or_404(SupplierDeliveryPrediction, pk=prediction_id)
+
+    # Pre-fill PR form with predicted data
+    url = reverse("procurement_create") + f"?ingredient={pred.ingredient.pk}&supplier={pred.supplier.pk}&qty={pred.estimated_volume}&reason=Radar:+predicted+delivery+window+{pred.predicted_window_start}+to+{pred.predicted_window_end}&priority=HIGH"
+    if is_htmx(request):
+        resp = HttpResponse(status=204)
+        resp["HX-Redirect"] = url
+        return resp
+    return redirect(url)

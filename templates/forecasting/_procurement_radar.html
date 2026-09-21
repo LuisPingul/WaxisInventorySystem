@@ -1,0 +1,46 @@
+<div class="procurement-radar" id="{{ radar_id|default:'procurement-radar' }}">
+  {% if alerts %}
+    {% for item in alerts %}
+      {% with p=item.prediction %}
+      <div class="radar-card {% if item.urgency == 'CONTACT_NOW' %}urgent{% else %}soon{% endif %}">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <div>
+            <strong style="font-size:0.9rem">{{ p.supplier.company_name }}</strong>
+            <span class="text-muted ms-2" style="font-size:0.75rem">{{ p.ingredient.name }} ({{ p.ingredient.unit }})</span>
+          </div>
+          <div class="text-end flex-shrink-0">
+            {% if item.urgency == 'CONTACT_NOW' %}
+              <span class="risk risk-high">CONTACT_NOW</span>
+            {% else %}
+              <span class="risk risk-medium">UPCOMING</span>
+            {% endif %}
+            <span class="text-muted ms-2" style="font-size:0.75rem">{{ item.days_until_window }}d</span>
+          </div>
+        </div>
+        <div class="radar-meta">
+          <span>Est. <strong>{{ p.estimated_volume }} {{ p.ingredient.unit }}</strong></span>
+          <span>Window <strong>{{ p.predicted_window_start|date:"M d" }}–{{ p.predicted_window_end|date:"M d" }}</strong></span>
+          <span>Cycle <strong>{{ p.predicted_cycle_days }}d</strong></span>
+          <span class="risk risk-low" title="Prediction confidence">Conf {{ item.confidence_pct }}%</span>
+        </div>
+        <div class="radar-actions">
+          <form hx-post="{% url 'forecasting:radar_create_pr' p.pk %}" hx-swap="none">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm {% if item.urgency == 'CONTACT_NOW' %}btn-danger{% else %}btn-primary{% endif %}">
+              <i class="bi bi-cart-plus me-1"></i> Lock In Order
+            </button>
+          </form>
+          <small class="text-muted">Pre-fills PR with supplier + volume</small>
+        </div>
+      </div>
+      {% endwith %}
+    {% endfor %}
+  {% else %}
+    <div class="empty-mini py-4">
+      <i class="bi bi-radar fs-3 d-block mb-2"></i>
+      <p class="mb-1">No upcoming delivery windows predicted.</p>
+      <small class="d-block mb-2">Minimum 3 historical deliveries per supplier/ingredient required.</small>
+      <small class="d-block">Run <code>python manage.py backfill_inbound_shipments</code> then <code>compute_forecasts --rhythm-only</code>.</small>
+    </div>
+  {% endif %}
+</div>

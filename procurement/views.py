@@ -43,10 +43,19 @@ def create_request(request):
     initial = {}
     ing_id = request.GET.get("ingredient")
     qty = request.GET.get("qty")
+    supplier_id = request.GET.get("supplier")
+    reason = request.GET.get("reason")
+    priority = request.GET.get("priority")
     if ing_id:
         initial["ingredient"] = ing_id
     if qty:
         initial["requested_quantity"] = qty
+    if supplier_id:
+        initial["supplier"] = supplier_id
+    if reason:
+        initial["reason"] = reason
+    if priority in dict(ProcurementRequest.Priority.choices):
+        initial["priority"] = priority
     # Auto-fill supplier from ingredient's supplier_fk if not supplied
     if ing_id and not request.POST.get("supplier"):
         try:

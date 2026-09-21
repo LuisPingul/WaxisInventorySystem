@@ -26,16 +26,7 @@
     </div>
 
 
-    <a
-        href="{% url 'inventory' %}"
-        class="btn btn-primary"
-    >
-
-        <i class="bi bi-box-seam me-2"></i>
-
-        View Inventory
-
-    </a>
+    
 
 </div>
 
@@ -106,38 +97,66 @@
 
 <div class="panel mb-3">
   <div class="panel-header">
-    <h3><i class="bi bi-robot me-1"></i> AI Executive Summary</h3>
+    <h3><i class="bi bi-robot me-1"></i> Executive Summary</h3>
     <div>
       {% if ai_summary %}
         <span class="badge bg-success">Live</span>
       {% else %}
-        <a hx-get="{% url 'dashboard:ai_summary' %}" hx-target="#ai-summary-box" hx-swap="innerHTML" class="btn btn-sm btn-outline-primary">Generate with Gemini</a>
+        <a hx-get="{% url 'dashboard:ai_summary' %}" hx-target="#ai-summary-box" hx-swap="innerHTML" class="btn btn-sm btn-primary text-white">Generate Report</a>
       {% endif %}
     </div>
   </div>
   <div id="ai-summary-box" class="p-2">
     {% if ai_summary %}
-      <div class="alert alert-light border mb-0" style="font-size:0.95rem">{{ ai_summary }}</div>
+      <div class="alert alert-light border mb-0">{{ ai_summary|safe }}</div>
     {% else %}
-      <div class="muted" style="font-size:0.9rem">Click Generate to get an AI health report (requires <code>GEMINI_API_KEY</code>). Shows pending, low/critical analysis + recommendation.</div>
+      <div class="muted" style="font-size:0.9rem">Click Generate to get a health report. Shows pending, low/critical analysis + recommendation.</div>
     {% endif %}
   </div>
 </div>
 
 <div class="panel mb-3">
+  <div class="panel-header">
+    <h3><i class="bi bi-radar me-1"></i> Procurement Radar</h3>
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm btn-light" hx-get="{% url 'forecasting:procurement_radar' %}" hx-target="#procurement-radar-manager" hx-swap="outerHTML"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+      <a href="{% url 'forecasting:forecast' %}" class="btn btn-sm btn-light">View All</a>
+    </div>
+  </div>
+  <div class="p-2" hx-get="{% url 'forecasting:procurement_radar' %}" hx-trigger="every 90s" hx-target="#procurement-radar-manager" hx-swap="outerHTML">
+    {% include "forecasting/_procurement_radar.html" with alerts=radar_alerts radar_id="procurement-radar-manager" %}
+  </div>
+</div>
+
+<div class="panel mb-3">
   <div class="panel-header"><h3>Storage Distribution (Frozen/Chilled/Dry)</h3><small class="muted">{{ weekly_movements }} movements in last 7 days · Ordered: {{ ordered }}</small></div>
-  <div style="max-width:520px; margin:auto"><canvas id="storageChartManager"></canvas></div>
+  <div class="panel-body">
+    <div style="max-width:520px; height:300px; margin:auto"><canvas id="storageChartManager"></canvas></div>
+  </div>
 </div>
 {{ chart_data|json_script:"chart-data-manager" }}
 <script>
-document.addEventListener('DOMContentLoaded', function(){
-  const el = document.getElementById('chart-data-manager');
-  if(!el || !window.Chart) return;
-  const data = JSON.parse(el.textContent);
-  const ctx = document.getElementById('storageChartManager');
-  if(!ctx) return;
-  new Chart(ctx, {type:'doughnut', data:{labels:data.labels, datasets:[{data:data.counts, backgroundColor:['#FE5F10','#871F09','#FED216','#198754','#6c757d']}]}, options:{plugins:{legend:{position:'bottom'}}}});
-});
+(function() {
+  function initChart() {
+    const el = document.getElementById('chart-data-manager');
+    if (!el) { console.warn('Chart data element not found'); return; }
+    if (!window.Chart) { console.warn('Chart.js not loaded yet, retrying...'); setTimeout(initChart, 100); return; }
+    try {
+      const data = JSON.parse(el.textContent);
+      const canvas = document.getElementById('storageChartManager');
+      if (!canvas) { console.warn('Canvas not found'); return; }
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { console.warn('Canvas 2D context not available'); return; }
+      new Chart(ctx, {type:'doughnut', data:{labels:data.labels, datasets:[{data:data.counts, backgroundColor:['#FE5F10','#198754','#871F09']}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}}}});
+      console.log('Storage Distribution chart initialized successfully');
+    } catch (e) { console.error('Chart init failed:', e); }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initChart);
+  } else {
+    initChart();
+  }
+})();
 </script>
 
 <div class="dashboard-grid">

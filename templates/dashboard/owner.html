@@ -106,50 +106,98 @@
 
 <div class="panel mb-3">
   <div class="panel-header">
-    <h3><i class="bi bi-robot me-1"></i> AI Executive Summary</h3>
+    <h3><i class="bi bi-robot me-1"></i> Executive Summary</h3>
     <div>
-      {% if ai_summary %}<span class="badge bg-success">Live</span>{% else %}<a hx-get="{% url 'dashboard:ai_summary' %}" hx-target="#ai-summary-box-owner" hx-swap="innerHTML" class="btn btn-sm btn-outline-primary">Regenerate</a>{% endif %}
-      <a href="{% url 'forecasting:forecast' %}" class="btn btn-sm btn-light ms-1">Forecast</a>
+      {% if ai_summary %}<span class="badge bg-success">Live</span>{% else %}<a hx-get="{% url 'dashboard:ai_summary' %}" hx-target="#ai-summary-box-owner" hx-swap="innerHTML" class="btn btn-sm btn-primary">Generate Report</a>{% endif %}
+      <a hx-get="{% url 'dashboard:forecast_partial' %}" hx-target="#forecast-panel-owner" hx-swap="innerHTML" class="btn btn-sm btn-light ms-1">View All</a>
     </div>
   </div>
   <div id="ai-summary-box-owner" class="p-2">
     {% if ai_summary %}
-      <div class="alert alert-light border mb-0">{{ ai_summary }}</div>
+      <div class="alert alert-light border mb-0">{{ ai_summary|safe }}</div>
     {% else %}
-      <div class="muted">AI summary unavailable (set GEMINI_API_KEY).</div>
+      <div class="muted">Click Generate Report to get an executive health summary.</div>
     {% endif %}
   </div>
 </div>
 
 <div class="panel mb-3">
   <div class="panel-header"><h3>Storage Distribution</h3><small class="muted">{{ weekly_movements }} movements 7d · Ordered {{ ordered }}</small></div>
-  <div style="max-width:520px; margin:auto"><canvas id="storageChartOwner"></canvas></div>
+  <div class="panel-body">
+    <div style="max-width:520px; height:300px; margin:auto"><canvas id="storageChartOwner"></canvas></div>
+  </div>
   {{ chart_data|json_script:"chart-data-owner" }}
   <script>
-  document.addEventListener('DOMContentLoaded', function(){
-    const el=document.getElementById('chart-data-owner'); if(!el || !window.Chart) return;
-    const data=JSON.parse(el.textContent);
-    const ctx=document.getElementById('storageChartOwner'); if(!ctx) return;
-    new Chart(ctx,{type:'doughnut', data:{labels:data.labels, datasets:[{data:data.counts, backgroundColor:['#FE5F10','#871F09','#FED216','#198754','#6c757d']}]}, options:{plugins:{legend:{position:'bottom'}}}});
-  });
+  (function() {
+    function initChart() {
+      const el = document.getElementById('chart-data-owner');
+      if (!el) { console.warn('Chart data element not found'); return; }
+      if (!window.Chart) { console.warn('Chart.js not loaded yet, retrying...'); setTimeout(initChart, 100); return; }
+      try {
+        const data = JSON.parse(el.textContent);
+        const canvas = document.getElementById('storageChartOwner');
+        if (!canvas) { console.warn('Canvas not found'); return; }
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { console.warn('Canvas 2D context not available'); return; }
+        const chart = new Chart(ctx, {type:'doughnut', data:{labels:data.labels, datasets:[{data:data.counts, backgroundColor:['#FE5F10','#198754','#871F09']}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}}}});
+        chart.resize();
+        console.log('Storage Distribution chart initialized successfully');
+      } catch (e) { console.error('Chart init failed:', e); }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initChart);
+    } else {
+      initChart();
+    }
+  })();
   </script>
 </div>
 
-{% if forecast_highlights %}
-<div class="panel mb-3">
-  <div class="panel-header"><h3>Forecast Highlights (Top Risk)</h3><a href="{% url 'forecasting:forecast' %}">View all</a></div>
+<div class="panel mb-3" id="forecast-panel-owner">
+  <div class="panel-header">
+    <h3>Forecast Highlights (Top Risk)</h3>
+    <a hx-get="{% url 'dashboard:forecast_partial' %}" hx-target="#forecast-panel-owner" hx-swap="innerHTML" class="btn btn-sm btn-light">View All</a>
+  </div>
+  {% if forecast_highlights %}
   <div class="table-responsive">
     <table class="table table-sm align-middle">
-      <thead><tr><th>Ingredient</th><th>Days Left</th><th>Risk</th><th>Reorder</th></tr></thead>
+      <thead><tr><th>Ingredient</th><th>Days Left</th><th>Risk (Dual)</th><th>Reorder</th></tr></thead>
       <tbody>
         {% for r in forecast_highlights %}
-        <tr><td>{{ r.ingredient.name }}</td><td>{{ r.days }} days</td><td><span class="risk risk-{{ r.risk|lower }}">{{ r.risk }}</span></td><td>{{ r.reorder }} {{ r.ingredient.unit }}</td></tr>
+        <tr>
+          <td>{{ r.ingredient.name }}</td>
+          <td>{{ r.days }} days</td>
+          <td>
+            {% if r.dual_mode %}
+              <span class="risk risk-{{ r.dual_mode.combined.combined_risk|lower }}">{{ r.dual_mode.combined.combined_risk }}</span>
+              {% if r.dual_mode.combined.sources|length > 1 %}<span class="badge bg-info ms-1">Dual</span>{% endif %}
+            {% else %}
+              <span class="risk risk-{{ r.risk|lower }}">{{ r.risk }}</span>
+            {% endif %}
+          </td>
+          <td>{{ r.reorder }} {{ r.ingredient.unit }}</td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  {% else %}
+  <div class="muted text-center py-3">No forecast highlights available.</div>
+  {% endif %}
 </div>
-{% endif %}
+
+<div class="panel mb-3">
+  <div class="panel-header">
+    <h3><i class="bi bi-radar me-1"></i> Procurement Radar</h3>
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm btn-light" hx-get="{% url 'forecasting:procurement_radar' %}" hx-target="#procurement-radar-owner" hx-swap="outerHTML"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+      <a href="{% url 'forecasting:forecast' %}" class="btn btn-sm btn-light">View All</a>
+    </div>
+  </div>
+  <div class="p-2" hx-get="{% url 'forecasting:procurement_radar' %}" hx-trigger="every 90s" hx-target="#procurement-radar-owner" hx-swap="outerHTML">
+    {% include "forecasting/_procurement_radar.html" with alerts=radar_alerts radar_id="procurement-radar-owner" %}
+  </div>
+</div>
 
 <div class="dashboard-grid">
 

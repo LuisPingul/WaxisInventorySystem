@@ -1,0 +1,64 @@
+{# Shared consumption forecast table. Expects: rows, selected_risk #}
+{% if alerts %}
+<div class="panel mb-3">
+  <div class="panel-header"><h3>Pending AI Alerts ({{ alerts|length }})</h3><a href="{% url 'forecasting:alerts' %}">View all</a></div>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead><tr><th>Ingredient</th><th>Suggested</th><th>Due</th><th>Risk</th><th>Reason</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for a in alerts %}
+        <tr>
+          <td><strong>{{ a.ingredient.name }}</strong></td>
+          <td>{{ a.suggested_quantity }} {{ a.ingredient.unit }}</td>
+          <td>{{ a.predicted_stockout_date|default:"—" }}</td>
+          <td><span class="risk risk-{{ a.risk|lower }}">{{ a.risk }}</span></td>
+          <td style="max-width:280px; font-size:0.85rem">{{ a.reason }}</td>
+          <td>
+            <form method="post" action="{% url 'forecasting:alert_approve' a.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-success">Convert to PR</button></form>
+            <form method="post" action="{% url 'forecasting:alert_reject' a.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">Dismiss</button></form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="panel">
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th>Ingredient</th><th>Current Stock</th><th>Avg. Daily Usage</th><th>Predicted Stockout</th><th>Recommended Reorder</th><th>Risk (Dual)</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td><strong>{{ row.ingredient.name }}</strong><div class="muted" style="font-size:0.75rem">{% if row.ingredient.supplier_fk %}{{ row.ingredient.supplier_fk.company_name }}{% else %}{{ row.ingredient.supplier|default:"No supplier" }}{% endif %}</div></td>
+          <td>{{ row.ingredient.quantity }} {{ row.ingredient.unit }}</td>
+          <td>{{ row.daily }} {{ row.ingredient.unit }}/day</td>
+          <td>{{ row.days }} days{% if row.stockout_date %}<div class="muted" style="font-size:0.75rem">~ {{ row.stockout_date }}</div>{% endif %}</td>
+          <td>{{ row.reorder }} {{ row.ingredient.unit }}</td>
+          <td>
+            {% if row.dual_mode %}
+              <span class="risk risk-{{ row.dual_mode.combined.combined_risk|lower }}">{{ row.dual_mode.combined.combined_risk }}</span>
+              {% if row.dual_mode.combined.sources|length > 1 %}
+                <span class="badge bg-info ms-1" title="Dual-mode: {{ row.dual_mode.combined.sources|join:', ' }}">Dual</span>
+              {% endif %}
+              {% if row.dual_mode.rhythm %}
+                <div class="muted" style="font-size:0.7rem">
+                  Rhythm: {{ row.dual_mode.rhythm.predicted_window_start|date:"M d" }}-{{ row.dual_mode.rhythm.predicted_window_end|date:"M d" }} ({{ row.dual_mode.rhythm.confidence|floatformat:0 }}% conf)
+                </div>
+              {% endif %}
+              {% if row.dual_mode.combined.recommendation %}
+                <div class="muted" style="font-size:0.7rem; max-width:220px">{{ row.dual_mode.combined.recommendation }}</div>
+              {% endif %}
+            {% else %}
+              <span class="risk risk-{{ row.risk|lower }}">{{ row.risk }}</span>
+            {% endif %}
+          </td>
+          <td>{% if row.reorder > 0 %}<a href="{% url 'procurement_create' %}?ingredient={{ row.ingredient.pk }}&qty={{ row.reorder }}" class="btn btn-sm btn-primary">Order</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+        </tr>
+        {% empty %}<tr><td colspan="7"><div class="empty-mini py-5">No ingredients available.</div></td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

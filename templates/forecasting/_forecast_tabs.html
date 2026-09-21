@@ -1,0 +1,21 @@
+{# HTMX partial for Owner "View All" — reuses shared partials, no duplication #}
+<ul class="nav nav-tabs mb-3" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#htmx-tab-consumption" role="tab">
+      <i class="bi bi-graph-down me-1"></i> Consumption
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#htmx-tab-radar" role="tab">
+      <i class="bi bi-radar me-1"></i> Radar
+    </button>
+  </li>
+</ul>
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="htmx-tab-consumption" role="tabpanel">
+    {% include "forecasting/_forecast_table.html" with rows=rows alerts=alerts %}
+  </div>
+  <div class="tab-pane fade" id="htmx-tab-radar" role="tabpanel">
+    {% include "forecasting/_procurement_radar.html" with alerts=radar_alerts radar_id="procurement-radar-htmx" %}
+  </div>
+</div>

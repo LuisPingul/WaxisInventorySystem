@@ -1,6 +1,5 @@
-Django>=5.2,<6.0
+Django>=4.2,<5.0
 psycopg[binary]>=3.2
-google-generativeai>=0.8
 python-dotenv>=1.0
 django-htmx>=1.19
 gunicorn>=22.0

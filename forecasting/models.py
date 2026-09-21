@@ -2,6 +2,36 @@ from django.contrib.auth.models import User
 from django.db import models
 
 from inventory.models import Ingredient
+from suppliers.models import Supplier
+
+
+class SupplierDeliveryPrediction(models.Model):
+    """Cached supplier delivery window predictions - Agrilytics output table"""
+    class Status(models.TextChoices):
+        UPCOMING = "UPCOMING", "Upcoming"
+        ACTIVE = "ACTIVE", "Active Window"
+        MISSED = "MISSED", "Window Missed"
+
+    supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE, related_name="delivery_predictions")
+    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE, related_name="delivery_predictions")
+    last_delivery_date = models.DateField()
+    predicted_cycle_days = models.PositiveIntegerField()
+    predicted_window_start = models.DateField()
+    predicted_window_end = models.DateField()
+    estimated_volume = models.DecimalField(max_digits=12, decimal_places=2)
+    confidence_score = models.DecimalField(max_digits=3, decimal_places=2)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.UPCOMING)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ["supplier", "ingredient"]
+        indexes = [
+            models.Index(fields=["predicted_window_start", "status"]),
+            models.Index(fields=["confidence_score"]),
+        ]
+
+    def __str__(self):
+        return f"{self.supplier} -> {self.ingredient}: {self.predicted_window_start} to {self.predicted_window_end} (conf: {self.confidence_score})"
 
 
 class AIProcurementAlert(models.Model):

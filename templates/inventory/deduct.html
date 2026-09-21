@@ -2,43 +2,33 @@
 {% block title %}Deduct Stock · Waxi's{% endblock %}
 {% block page_title %}Deduct Stock{% endblock %}
 {% block content %}
-<div class="deduct-layout">
-    <div class="panel form-panel">
-        <div class="form-intro">
-            <div class="big-action-icon"><i class="bi bi-dash-circle"></i></div>
-            <h1>Deduct Ingredient</h1>
-            <p>Record ingredient usage during kitchen operations.</p>
-        </div>
-        <form method="post">
-            {% csrf_token %}
-            {% for field in form %}
-            <div class="mb-4">
-                <label class="form-label fw-semibold">{{ field.label }}</label>
-                {{ field }}
-                {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                {% if field.name == "quantity" %}<div class="form-text">Tablet: use numeric keypad. Min 0.01.</div>{% endif %}
-            </div>
-            {% endfor %}
-            <button class="btn btn-primary btn-lg w-100" type="submit" style="min-height:56px; font-size:1.1rem">Confirm Deduction</button>
-        </form>
-        <script>
-          // Enhance quantity input for tablet numeric keypad
-          document.addEventListener('DOMContentLoaded', function(){
-            const qty = document.querySelector('input[name="quantity"]');
-            if(qty){ qty.setAttribute('inputmode','decimal'); qty.setAttribute('type','text'); qty.setAttribute('pattern','[0-9]*'); }
-          });
-        </script>
-    </div>
-    <div class="panel tip-panel">
-        <span class="eyebrow">Kitchen Reminder</span>
-        <h3>Keep stock accurate.</h3>
-        <p>Every deduction is recorded with the user, quantity, remaining stock, and reason.</p>
-        <div class="info-list">
-            <div><i class="bi bi-check-circle-fill"></i> Real-time stock update</div>
-            <div><i class="bi bi-check-circle-fill"></i> Transaction history</div>
-            <div><i class="bi bi-check-circle-fill"></i> Audit trail</div>
-            <div><i class="bi bi-check-circle-fill"></i> Low-stock warning</div>
-        </div>
+<div class="page-heading">
+    <div>
+        <h1>Deduct Stock</h1>
+        <p>Select ingredient and enter quantity to deduct. Zero-stock items are disabled.</p>
     </div>
 </div>
+
+<!-- Search Bar -->
+<div class="panel mb-6">
+    <div class="panel-body">
+        <form method="GET" hx-get="{% url 'deduct_stock' %}" hx-target="#deduct-grid-container" hx-swap="innerHTML" hx-trigger="input changed delay:300ms, submit" class="flex gap-3">
+            {% csrf_token %}
+            <div class="flex-1">
+                <label for="search-input" class="sr-only">Search ingredients</label>
+                <input type="search" name="q" id="search-input" value="{{ search_query }}" placeholder="Search ingredients..." class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all" placeholder="Search ingredients...">
+            </div>
+            <button type="submit" class="btn btn-primary whitespace-nowrap">Search</button>
+            {% if search_query %}
+                <a href="{% url 'deduct_stock' %}" class="btn btn-light">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- Grid Container -->
+<div id="deduct-grid-container">
+    {% include "inventory/_deduct_grid.html" with ingredients=ingredients %}
+</div>
+
 {% endblock %}

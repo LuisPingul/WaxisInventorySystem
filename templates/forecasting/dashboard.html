@@ -4,63 +4,107 @@
 {% block content %}
 <div class="page-heading">
   <div><h1>Forecast & Predictions</h1><p>30-day rolling average from StockTransaction history. Nightly auto via <code>compute_forecasts</code> cron.</p></div>
-  <div class="d-flex gap-2">
-    <form method="get" class="d-inline">
-      <select name="risk" class="form-select form-select-sm d-inline w-auto" onchange="this.form.submit()">
+  <div class="d-flex gap-2 align-items-center">
+    <form hx-get="{% url 'forecasting:forecast' %}" hx-target="#tab-consumption" hx-swap="innerHTML" hx-push-url="true" hx-trigger="change" class="d-inline">
+      <select name="risk" class="form-select form-select-sm d-inline w-auto" onchange="this.form.requestSubmit()">
         <option value="">All Risks</option>
         <option value="HIGH" {% if selected_risk == "HIGH" %}selected{% endif %}>High</option>
         <option value="MEDIUM" {% if selected_risk == "MEDIUM" %}selected{% endif %}>Medium</option>
         <option value="LOW" {% if selected_risk == "LOW" %}selected{% endif %}>Low</option>
+        <option value="CRITICAL" {% if selected_risk == "CRITICAL" %}selected{% endif %}>Critical</option>
       </select>
     </form>
     <form method="post" action="{% url 'forecasting:generate_alerts' %}" class="d-inline">{% csrf_token %}<button class="btn btn-primary btn-sm"><i class="bi bi-lightning me-1"></i> Generate AI Alerts ({{ total_alerts_pending }} pending)</button></form>
   </div>
 </div>
 
-{% if alerts %}
-<div class="panel mb-3">
-  <div class="panel-header"><h3>Pending AI Alerts ({{ alerts|length }})</h3><a href="{% url 'forecasting:alerts' %}">View all</a></div>
-  <div class="table-responsive">
-    <table class="table table-sm align-middle">
-      <thead><tr><th>Ingredient</th><th>Suggested</th><th>Due</th><th>Risk</th><th>Reason</th><th>Action</th></tr></thead>
-      <tbody>
-        {% for a in alerts %}
-        <tr>
-          <td><strong>{{ a.ingredient.name }}</strong></td>
-          <td>{{ a.suggested_quantity }} {{ a.ingredient.unit }}</td>
-          <td>{{ a.predicted_stockout_date|default:"—" }}</td>
-          <td><span class="risk risk-{{ a.risk|lower }}">{{ a.risk }}</span></td>
-          <td style="max-width:280px; font-size:0.85rem">{{ a.reason }}</td>
-          <td>
-            <form method="post" action="{% url 'forecasting:alert_approve' a.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-success">Convert to PR</button></form>
-            <form method="post" action="{% url 'forecasting:alert_reject' a.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">Dismiss</button></form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<!-- Tab Navigation -->
+<ul class="nav nav-tabs mb-3" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-consumption" role="tab">
+      <i class="bi bi-graph-down me-1"></i> Consumption Forecast
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-radar" role="tab">
+      <i class="bi bi-radar me-1"></i> Supplier Radar
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-timeline" role="tab">
+      <i class="bi bi-bar-chart-line me-1"></i> Stockout Timeline
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+  <!-- Consumption Forecast Tab -->
+  <div class="tab-pane fade show active" id="tab-consumption" role="tabpanel">
+    {% include "forecasting/_forecast_table.html" with rows=rows alerts=alerts %}
+  </div>
+
+  <!-- Supplier Radar Tab -->
+  <div class="tab-pane fade" id="tab-radar" role="tabpanel">
+    {% include "forecasting/_radar_panel.html" with radar_alerts=radar_alerts radar_id="procurement-radar-forecast" poll=True %}
+  </div>
+
+  <!-- Stockout Timeline Tab -->
+  <div class="tab-pane fade" id="tab-timeline" role="tabpanel">
+    <div class="panel">
+      <div class="panel-header"><h3>Days Until Stockout (Top 12 at risk)</h3><small class="muted">Color by combined risk</small></div>
+      <div class="panel-body">
+        <div style="height:320px"><canvas id="stockoutTimeline"></canvas></div>
+      </div>
+    </div>
   </div>
 </div>
-{% endif %}
 
-<div class="panel">
-<div class="table-responsive">
-<table class="table align-middle">
-<thead><tr><th>Ingredient</th><th>Current Stock</th><th>Avg. Daily Usage</th><th>Predicted Stockout</th><th>Recommended Reorder</th><th>Risk</th><th>Action</th></tr></thead>
-<tbody>
-{% for row in rows %}
-<tr>
-  <td><strong>{{ row.ingredient.name }}</strong><div class="muted" style="font-size:0.75rem">{% if row.ingredient.supplier_fk %}{{ row.ingredient.supplier_fk.company_name }}{% else %}{{ row.ingredient.supplier|default:"No supplier" }}{% endif %}</div></td>
-  <td>{{ row.ingredient.quantity }} {{ row.ingredient.unit }}</td>
-  <td>{{ row.daily }} {{ row.ingredient.unit }}/day</td>
-  <td>{{ row.days }} days{% if row.stockout_date %}<div class="muted" style="font-size:0.75rem">~ {{ row.stockout_date }}</div>{% endif %}</td>
-  <td>{{ row.reorder }} {{ row.ingredient.unit }}</td>
-  <td><span class="risk risk-{{ row.risk|lower }}">{{ row.risk }}</span></td>
-  <td>{% if row.reorder > 0 %}<a href="{% url 'procurement_create' %}?ingredient={{ row.ingredient.pk }}&qty={{ row.reorder }}" class="btn btn-sm btn-primary">Order</a>{% else %}<span class="muted">—</span>{% endif %}</td>
-</tr>
-{% empty %}<tr><td colspan="7"><div class="empty-mini py-5">No ingredients available.</div></td></tr>{% endfor %}
-</tbody>
-</table>
-</div>
-</div>
+<script>
+(function() {
+  function riskColor(r) {
+    r = (r || "").toUpperCase();
+    if (r === "CRITICAL") return "#871F09";
+    if (r === "HIGH") return "#dc3545";
+    if (r === "MEDIUM") return "#FED216";
+    return "#198754";
+  }
+  function initTimeline() {
+    const canvas = document.getElementById("stockoutTimeline");
+    if (!canvas || !window.Chart) return;
+    try {
+      // rows contain Django model instances — cannot JSON serialize directly.
+      // Rebuild from DOM table instead (days + risk columns).
+      const tableRows = document.querySelectorAll("#tab-consumption table.table tbody tr");
+      const labels = [], data = [], colors = [];
+      tableRows.forEach((tr, idx) => {
+        if (idx >= 12) return;
+        const cells = tr.querySelectorAll("td");
+        if (cells.length < 6) return;
+        const name = cells[0].querySelector("strong")?.innerText?.trim() || ("Item " + (idx+1));
+        const daysText = cells[3]?.innerText || "0";
+        const days = parseFloat(daysText) || 0;
+        const riskEl = cells[5]?.querySelector(".risk");
+        const risk = riskEl?.innerText?.trim() || "LOW";
+        labels.push(name.slice(0, 18));
+        data.push(days);
+        colors.push(riskColor(risk));
+      });
+      if (!labels.length) return;
+      if (window._stockoutChart) window._stockoutChart.destroy();
+      window._stockoutChart = new Chart(canvas.getContext("2d"), {
+        type: "bar",
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 6 }] },
+        options: { indexAxis: "y", responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { x: { title: { display: true, text: "Days left" } } } }
+      });
+    } catch (e) { console.error("Timeline init failed:", e); }
+  }
+  document.addEventListener("shown.bs.tab", (e) => {
+    if (e.target?.getAttribute("data-bs-target") === "#tab-timeline") initTimeline();
+  });
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initTimeline);
+  else setTimeout(initTimeline, 300);
+})();
+</script>
 {% endblock %}

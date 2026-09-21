@@ -89,3 +89,39 @@ class StockTransaction(models.Model):
 
     def __str__(self):
         return f"{self.ingredient} - {self.get_transaction_type_display()}"
+
+
+class InboundShipment(models.Model):
+    """Historical inbound delivery record - source for supplier rhythm calculation"""
+    supplier = models.ForeignKey(
+        "suppliers.Supplier",
+        on_delete=models.CASCADE,
+        related_name="inbound_shipments"
+    )
+    ingredient = models.ForeignKey(
+        Ingredient,
+        on_delete=models.CASCADE,
+        related_name="inbound_shipments"
+    )
+    procurement_request = models.ForeignKey(
+        "procurement.ProcurementRequest",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inbound_shipments"
+    )
+    quantity_received = models.DecimalField(max_digits=12, decimal_places=2)
+    received_at = models.DateTimeField()
+    unit_cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    notes = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["supplier", "ingredient", "received_at"]),
+            models.Index(fields=["received_at"]),
+        ]
+        ordering = ["-received_at"]
+
+    def __str__(self):
+        return f"{self.supplier} -> {self.ingredient} ({self.quantity_received} on {self.received_at.date()})"

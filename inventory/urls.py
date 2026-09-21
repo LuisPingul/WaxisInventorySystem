@@ -9,6 +9,7 @@ urlpatterns = [
     path("search-partial/", inventory_search_partial, name="inventory_search_partial"),
     path("transactions/", transactions, name="transactions"),
     path("deduct/", deduct_stock, name="deduct_stock"),
+    path("deduct/<int:item_id>/", deduct_stock, name="deduct_stock_item"),
     path("add/", ingredient_create, name="ingredient_create"),
     path("<int:pk>/", ingredient_detail, name="ingredient_detail"),
     path("<int:pk>/edit/", ingredient_edit, name="ingredient_edit"),

@@ -1,9 +1,10 @@
 from django.urls import path
-from .views import home, ai_summary_view
+from .views import home, ai_summary_view, forecast_partial
 
 app_name = "dashboard"
 
 urlpatterns = [
     path("", home, name="home"),
     path("ai-summary/", ai_summary_view, name="ai_summary"),
+    path("forecast-partial/", forecast_partial, name="forecast_partial"),
 ]
