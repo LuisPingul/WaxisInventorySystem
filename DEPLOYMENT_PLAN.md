@@ -16,6 +16,8 @@ Deploy the Django monolith to Render Free tier + Supabase Free Singapore, no Ver
 
 ### ✅ COMPLETED
 - Forecasting UI finished (`c568432`): `forecasting/selectors.py` shared enrichment, brand-aligned radar (`radar-card`), HTMX `HX-Redirect` order flow, deduplicated `_forecast_table.html`/`_radar_panel.html` partials, dual-risk owner highlights, timeline chart, variance UI, radar polling
+- Doughnut chart blank fix (local, uncommitted): `_chart_data()` returned `json.dumps()` string double-encoded by `|json_script` → now returns `dict`; empty-data guard in owner/manager templates
+- Dashboard batch (local, uncommitted): View All → Forecast redirects (`?tab=radar` deep link, `forecast_partial` removed), Owner summary = Manager summary, seamless topbar, hidden sidebar scrollbar, High Demand line chart (Owner + Manager, rolling-30d daily series), doughnut product tooltips (Owner + Manager)
 - `requirements.txt`: Django 4.2 LTS, `gunicorn>=22.0` `whitenoise>=6.6` `dj-database-url>=2.2` (no `google-generativeai`)
 - `config/settings.py`: `DATABASE_URL` pooler parse (`ssl_require=True`, `conn_max_age=0`), `ALLOWED_HOSTS .onrender.com` auto, `CSRF_TRUSTED_ORIGINS`, `STATIC_ROOT` + `WhiteNoise`, `SECURE_PROXY_SSL_HEADER`, `sslmode=require` fallback
 - `.env.example`: + `DATABASE_URL`, `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`

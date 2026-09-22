@@ -76,6 +76,10 @@ a { color: inherit; text-decoration: none; }
     flex: 1;
 }
 
+/* Hide scrollbar but keep scrolling (sidebar nav) */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+
 .nav-link {
     display: flex;
     align-items: center;
@@ -163,7 +167,7 @@ a { color: inherit; text-decoration: none; }
     min-width: 0;
     width: calc(100% - 335px);
 }
-.topbar { height: 86px; background: #fff; border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 30px; position: sticky; top: 0; z-index: 100; }
+.topbar { height: 86px; background: var(--bg); display: flex; align-items: center; padding: 0 30px; position: sticky; top: 0; z-index: 100; }
 .topbar-title { font-size: 19px; font-weight: 700; color: var(--text); }
 .topbar-subtitle { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .user-chip { display: flex; gap: 10px; align-items: center; }
@@ -474,11 +478,10 @@ body {
 .main-area { margin-left: 335px; width: calc(100% - 335px); }
 .topbar {
     height: 82px;
-    background: rgba(255,255,255,.96);
-    border-bottom-color: var(--line);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    box-shadow: 0 1px 0 rgba(135,31,9,.04);
+    background: var(--bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
 }
 .topbar-title { color: var(--text); font-size: 20px; }
 .topbar-subtitle { color: var(--muted); }

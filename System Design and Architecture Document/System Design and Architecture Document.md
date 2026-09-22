@@ -126,6 +126,28 @@ The PostgreSQL database is normalized and relies on the following core entities 
 
 ### Primary Button Text Color (Global)
 **Fix:** Added explicit `color: #fff;` to `.btn-primary` and `.btn-primary:hover` in `static/css/style.css` (4 locations) to ensure white text on all primary buttons.
+
+### Storage Distribution Blank Chart — Double-Encoded Data (2026-09-22)
+**Issue:** Doughnut charts invisible (blank canvas) on Owner + Manager dashboards despite the 2026-09-18 height fix. Not a layout/clipping issue.
+
+**Root Cause:** `dashboard/views.py:_chart_data()` returned a `json.dumps()` **string**, which templates then passed through `|json_script` — serializing a second time. `JSON.parse()` in the init script yielded a string, so `data.labels` / `data.counts` were `undefined` and Chart.js drew nothing.
+
+**Fix Applied:**
+1. `_chart_data()` returns a `dict` (`{"labels":..., "counts":...}`); `|json_script` performs the single encoding. Removed unused `import json`.
+2. Owner/manager init scripts guard empty data: no labels → replace `.panel-body` content with "No category data yet" empty state instead of a blank canvas.
+
+**Rule:** Never pre-serialize with `json.dumps()` when the template uses `|json_script` — it encodes exactly once.
+
+### Dashboard Navigation Cleanup (2026-09-22)
+- Owner "View All" buttons redirect to the Forecast page instead of expanding in place: Forecast Highlights → `/forecast/` (Consumption tab), Procurement Radar (Owner + Manager) → `/forecast/?tab=radar` (Supplier Radar tab via server-side `active_tab`, validated with Consumption fallback).
+- Removed dead code: `forecast_partial()` view, `forecast-partial/` route, `_forecast_tabs.html` (the duplicate Radar tab beside Consumption is gone; radar lives solely in the standalone panels).
+- Owner Executive Summary unified with Manager's (visual + on-demand `?ai=1` behavior, shared `#ai-summary-box` id).
+
+### Chrome + Charts (2026-09-22)
+- Sidebar scrollbar hidden globally (`.no-scrollbar`, scroll still works); topbar seamless globally (`var(--bg)`, no border/shadow/blur).
+- "High Demand Products" card beside Storage Distribution on Owner + Manager (theme `.panel`, `lg:grid-cols-2`): filled line chart of daily deductions over rolling 30 days for top 5 ingredients by **deduction count** (`DEDUCTED` + `NORMAL_USAGE`) via `dashboard/services.top_demanded_ingredients()` — zero-filled daily series (`TruncDate`), count-based so mixed units stay comparable.
+- Doughnut tooltips (Owner + Manager) list per-category products with stock via `chart_details` payload (`tooltipLabel` callback, multiline).
+- Reverted experiment (not shipped): per-product HTML legend under the doughnut — removed after it rendered a literal `{# #}` (Django tags can't span lines) and the chart regressed. Tooltips cover the use case.
 ## 6. Management Commands & Cron
 | Command | Purpose | Schedule |
 |---------|---------|----------|

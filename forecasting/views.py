@@ -16,7 +16,10 @@ from .services import generate_all_forecasts
 @role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER, Profile.Role.MANAGER)
 def forecast(request):
     risk_filter = request.GET.get("risk", "")
+    tab = request.GET.get("tab", "consumption")
+    active_tab = tab if tab in {"consumption", "radar", "timeline"} else "consumption"
     ctx = build_forecast_context(days_window=30, risk_filter=risk_filter, radar_limit=20)
+    ctx["active_tab"] = active_tab
     if is_htmx(request):
         # Risk filter via HTMX targets #tab-consumption — return table only
         return render(request, "forecasting/_forecast_table.html", ctx)

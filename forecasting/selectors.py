@@ -1,7 +1,6 @@
 """Shared forecast selectors — single source for consumption + radar enrichment.
 
-Used by forecasting/views.forecast and dashboard/views.forecast_partial
-to avoid duplicated enrichment logic.
+Used by forecasting/views.forecast (full page + HTMX risk-filter partial).
 """
 from django.utils import timezone
 

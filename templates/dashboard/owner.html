@@ -108,27 +108,42 @@
   <div class="panel-header">
     <h3><i class="bi bi-robot me-1"></i> Executive Summary</h3>
     <div>
-      {% if ai_summary %}<span class="badge bg-success">Live</span>{% else %}<a hx-get="{% url 'dashboard:ai_summary' %}" hx-target="#ai-summary-box-owner" hx-swap="innerHTML" class="btn btn-sm btn-primary">Generate Report</a>{% endif %}
-      <a hx-get="{% url 'dashboard:forecast_partial' %}" hx-target="#forecast-panel-owner" hx-swap="innerHTML" class="btn btn-sm btn-light ms-1">View All</a>
+      {% if ai_summary %}
+        <span class="badge bg-success">Live</span>
+      {% else %}
+        <a hx-get="{% url 'dashboard:ai_summary' %}" hx-target="#ai-summary-box" hx-swap="innerHTML" class="btn btn-sm btn-primary text-white">Generate Report</a>
+      {% endif %}
     </div>
   </div>
-  <div id="ai-summary-box-owner" class="p-2">
+  <div id="ai-summary-box" class="p-2">
     {% if ai_summary %}
       <div class="alert alert-light border mb-0">{{ ai_summary|safe }}</div>
     {% else %}
-      <div class="muted">Click Generate Report to get an executive health summary.</div>
+      <div class="muted" style="font-size:0.9rem">Click Generate to get a health report. Shows pending, low/critical analysis + recommendation.</div>
     {% endif %}
   </div>
 </div>
 
-<div class="panel mb-3">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+<div class="panel">
   <div class="panel-header"><h3>Storage Distribution</h3><small class="muted">{{ weekly_movements }} movements 7d · Ordered {{ ordered }}</small></div>
   <div class="panel-body">
     <div style="max-width:520px; height:300px; margin:auto"><canvas id="storageChartOwner"></canvas></div>
   </div>
   {{ chart_data|json_script:"chart-data-owner" }}
+  {{ chart_details|json_script:"chart-data-details" }}
   <script>
   (function() {
+    function tooltipLabel(c) {
+      var detailsEl = document.getElementById('chart-data-details');
+      var header = c.label + ': ' + c.parsed;
+      try {
+        var details = JSON.parse(detailsEl.textContent);
+        var lines = details[c.label];
+        if (lines && lines.length) return [header].concat(lines);
+      } catch (e) { /* fall through to header only */ }
+      return [header];
+    }
     function initChart() {
       const el = document.getElementById('chart-data-owner');
       if (!el) { console.warn('Chart data element not found'); return; }
@@ -137,9 +152,13 @@
         const data = JSON.parse(el.textContent);
         const canvas = document.getElementById('storageChartOwner');
         if (!canvas) { console.warn('Canvas not found'); return; }
+        if (!data || !data.labels || !data.labels.length) {
+          canvas.closest(".panel-body").innerHTML = '<div class="empty-mini">No category data yet — add ingredients to see the distribution.</div>';
+          return;
+        }
         const ctx = canvas.getContext('2d');
         if (!ctx) { console.warn('Canvas 2D context not available'); return; }
-        const chart = new Chart(ctx, {type:'doughnut', data:{labels:data.labels, datasets:[{data:data.counts, backgroundColor:['#FE5F10','#198754','#871F09']}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}}}});
+        const chart = new Chart(ctx, {type:'doughnut', data:{labels:data.labels, datasets:[{data:data.counts, backgroundColor:['#FE5F10','#198754','#871F09']}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}, tooltip:{callbacks:{label:tooltipLabel}}}}});
         chart.resize();
         console.log('Storage Distribution chart initialized successfully');
       } catch (e) { console.error('Chart init failed:', e); }
@@ -153,10 +172,59 @@
   </script>
 </div>
 
+<div class="panel">
+  <div class="panel-header"><h3>High Demand Products</h3><small class="muted">Daily deductions · rolling 30 days</small></div>
+  <div class="panel-body">
+    <div style="height:300px"><canvas id="demandChart"></canvas></div>
+  </div>
+  {{ demand_data|json_script:"demand-data" }}
+  <script>
+  (function() {
+    function initDemandChart() {
+      const el = document.getElementById('demand-data');
+      if (!el) { console.warn('Demand data element not found'); return; }
+      if (!window.Chart) { console.warn('Chart.js not loaded yet, retrying...'); setTimeout(initDemandChart, 100); return; }
+      try {
+        const data = JSON.parse(el.textContent);
+        const canvas = document.getElementById('demandChart');
+        if (!canvas) { console.warn('Demand canvas not found'); return; }
+        if (!data || !data.labels || !data.labels.length) {
+          canvas.closest(".panel-body").innerHTML = '<div class="empty-mini">No deductions in the last 30 days.</div>';
+          return;
+        }
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { console.warn('Canvas 2D context not available'); return; }
+        const palette = [
+          {line:'#FE5F10', fill:'rgba(254,95,16,.18)'},
+          {line:'#198754', fill:'rgba(25,135,84,.16)'},
+          {line:'#871F09', fill:'rgba(135,31,9,.14)'},
+          {line:'#C9A400', fill:'rgba(254,210,22,.20)'},
+          {line:'#2458a8', fill:'rgba(36,88,168,.14)'}
+        ];
+        const datasets = data.datasets.map((s, i) => Object.assign({}, s, {
+          fill: true, tension: 0.35, pointRadius: 2, pointHoverRadius: 4, borderWidth: 2,
+          borderColor: palette[i % palette.length].line,
+          backgroundColor: palette[i % palette.length].fill,
+          pointBackgroundColor: palette[i % palette.length].line
+        }));
+        new Chart(ctx, {type:'line', data:{labels:data.labels, datasets:datasets}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:true, position:'top', labels:{boxWidth:12, font:{size:10}}}}, scales:{x:{ticks:{maxTicksLimit:8, font:{size:10}}}, y:{beginAtZero:true, title:{display:true, text:'Deductions'}, ticks:{precision:0}}}}});
+        console.log('High Demand chart initialized successfully');
+      } catch (e) { console.error('Demand chart init failed:', e); }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initDemandChart);
+    } else {
+      initDemandChart();
+    }
+  })();
+  </script>
+</div>
+</div>
+
 <div class="panel mb-3" id="forecast-panel-owner">
   <div class="panel-header">
     <h3>Forecast Highlights (Top Risk)</h3>
-    <a hx-get="{% url 'dashboard:forecast_partial' %}" hx-target="#forecast-panel-owner" hx-swap="innerHTML" class="btn btn-sm btn-light">View All</a>
+    <a href="{% url 'forecasting:forecast' %}" class="btn btn-sm btn-light">View All</a>
   </div>
   {% if forecast_highlights %}
   <div class="table-responsive">
@@ -191,7 +259,7 @@
     <h3><i class="bi bi-radar me-1"></i> Procurement Radar</h3>
     <div class="d-flex gap-2">
       <button class="btn btn-sm btn-light" hx-get="{% url 'forecasting:procurement_radar' %}" hx-target="#procurement-radar-owner" hx-swap="outerHTML"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
-      <a href="{% url 'forecasting:forecast' %}" class="btn btn-sm btn-light">View All</a>
+      <a href="{% url 'forecasting:forecast' %}?tab=radar" class="btn btn-sm btn-light">View All</a>
     </div>
   </div>
   <div class="p-2" hx-get="{% url 'forecasting:procurement_radar' %}" hx-trigger="every 90s" hx-target="#procurement-radar-owner" hx-swap="outerHTML">

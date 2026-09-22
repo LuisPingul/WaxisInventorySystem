@@ -21,17 +21,17 @@
 <!-- Tab Navigation -->
 <ul class="nav nav-tabs mb-3" role="tablist">
   <li class="nav-item" role="presentation">
-    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-consumption" role="tab">
+    <button class="nav-link {% if active_tab|default:'consumption' == 'consumption' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tab-consumption" role="tab">
       <i class="bi bi-graph-down me-1"></i> Consumption Forecast
     </button>
   </li>
   <li class="nav-item" role="presentation">
-    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-radar" role="tab">
+    <button class="nav-link {% if active_tab|default:'consumption' == 'radar' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tab-radar" role="tab">
       <i class="bi bi-radar me-1"></i> Supplier Radar
     </button>
   </li>
   <li class="nav-item" role="presentation">
-    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-timeline" role="tab">
+    <button class="nav-link {% if active_tab|default:'consumption' == 'timeline' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tab-timeline" role="tab">
       <i class="bi bi-bar-chart-line me-1"></i> Stockout Timeline
     </button>
   </li>
@@ -39,17 +39,17 @@
 
 <div class="tab-content">
   <!-- Consumption Forecast Tab -->
-  <div class="tab-pane fade show active" id="tab-consumption" role="tabpanel">
+  <div class="tab-pane fade {% if active_tab|default:'consumption' == 'consumption' %}show active{% endif %}" id="tab-consumption" role="tabpanel">
     {% include "forecasting/_forecast_table.html" with rows=rows alerts=alerts %}
   </div>
 
   <!-- Supplier Radar Tab -->
-  <div class="tab-pane fade" id="tab-radar" role="tabpanel">
+  <div class="tab-pane fade {% if active_tab|default:'consumption' == 'radar' %}show active{% endif %}" id="tab-radar" role="tabpanel">
     {% include "forecasting/_radar_panel.html" with radar_alerts=radar_alerts radar_id="procurement-radar-forecast" poll=True %}
   </div>
 
   <!-- Stockout Timeline Tab -->
-  <div class="tab-pane fade" id="tab-timeline" role="tabpanel">
+  <div class="tab-pane fade {% if active_tab|default:'consumption' == 'timeline' %}show active{% endif %}" id="tab-timeline" role="tabpanel">
     <div class="panel">
       <div class="panel-header"><h3>Days Until Stockout (Top 12 at risk)</h3><small class="muted">Color by combined risk</small></div>
       <div class="panel-body">

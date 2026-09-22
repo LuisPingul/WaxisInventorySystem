@@ -1,5 +1,3 @@
-import json
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
@@ -107,7 +105,8 @@ def _chart_data(distribution):
     # Map friendly labels
     label_map = {"DRY": "Dry", "CHILLED": "Chilled", "FROZEN": "Frozen"}
     labels = [label_map.get(l, l) for l in labels]
-    return json.dumps({"labels": labels, "counts": counts})
+    # Return a dict — templates serialize via |json_script (single encoding).
+    return {"labels": labels, "counts": counts}
 
 
 @login_required
@@ -121,6 +120,13 @@ def manager_dashboard(request):
     from forecasting.selectors import get_radar_alerts
 
     radar_alerts = get_radar_alerts(days_ahead=30, min_confidence=0.1, limit=5)
+    # High Demand Products for manager (deduction counts, 30d)
+    try:
+        from dashboard.services import top_demanded_ingredients
+
+        demand_data = top_demanded_ingredients(days=30, limit=5)
+    except Exception:
+        demand_data = {"labels": [], "data": []}
     return render(request, "dashboard/manager.html", {
         "ingredients": ctx["ingredients"],
         "total": ctx["total"],
@@ -131,6 +137,8 @@ def manager_dashboard(request):
         "transactions": ctx["recent"],
         "distribution": ctx["distribution"],
         "chart_data": _chart_data(ctx["distribution"]),
+        "chart_details": ctx.get("chart_details", {}),
+        "demand_data": demand_data,
         "weekly_movements": ctx["weekly_movements"],
         "ai_summary": ai_summary,
         "radar_alerts": radar_alerts,
@@ -140,10 +148,10 @@ def manager_dashboard(request):
 @login_required
 def owner_dashboard(request):
     ctx = dashboard_context()
-    # Owner always gets executive summary (cached per request)
-    snap = {"total": ctx["total"], "low": ctx["low"], "critical": ctx["critical"], "pending": ctx["pending"], "distribution": ctx["distribution"]}
+    # Executive summary on demand (?ai=1), same as Manager dashboard
     ai_summary = None
-    if request.GET.get("ai") != "0":
+    if request.GET.get("ai") == "1":
+        snap = {"total": ctx["total"], "low": ctx["low"], "critical": ctx["critical"], "pending": ctx["pending"], "distribution": ctx["distribution"]}
         try:
             ai_summary = generate_executive_summary(snap)
         except Exception:
@@ -159,6 +167,13 @@ def owner_dashboard(request):
     from forecasting.selectors import get_radar_alerts as _get_radar
 
     radar_alerts = _get_radar(days_ahead=30, min_confidence=0.1, limit=5)
+    # High Demand Products for owner (deduction counts, 30d)
+    try:
+        from dashboard.services import top_demanded_ingredients
+
+        demand_data = top_demanded_ingredients(days=30, limit=5)
+    except Exception:
+        demand_data = {"labels": [], "data": []}
     return render(request, "dashboard/owner.html", {
         "ingredients": ctx["ingredients"],
         "total": ctx["total"],
@@ -169,6 +184,8 @@ def owner_dashboard(request):
         "transactions": StockTransaction.objects.select_related("ingredient", "user").order_by("-created_at")[:10],
         "distribution": ctx["distribution"],
         "chart_data": _chart_data(ctx["distribution"]),
+        "chart_details": ctx.get("chart_details", {}),
+        "demand_data": demand_data,
         "weekly_movements": ctx["weekly_movements"],
         "ai_summary": ai_summary,
         "forecast_highlights": forecast_rows,
@@ -185,16 +202,6 @@ def ai_summary_view(request):
         return render(request, "dashboard/_ai_summary.html", {"ai_summary": summary})
     messages.info(request, summary)
     return redirect("dashboard:home")
-
-
-@login_required
-def forecast_partial(request):
-    """HTMX partial: Full forecast tabs content for Owner dashboard."""
-    from forecasting.selectors import build_forecast_context
-
-    risk_filter = request.GET.get("risk", "")
-    ctx = build_forecast_context(days_window=30, risk_filter=risk_filter, radar_limit=20)
-    return render(request, "forecasting/_forecast_tabs.html", ctx)
 
 
 @login_required

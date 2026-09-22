@@ -37,7 +37,7 @@ Open: http://127.0.0.1:8000/accounts/login/
 |--------|-------------|
 | **Kitchen Hub** | Touch-optimized deduction entry (HTMX autocomplete) |
 | **Crew Dashboard** | Responsive ingredient grid with inline deduct forms, HTMX search, scrollable (no pagination), zero-stock disabling |
-| **Owner/Manager Dashboards** | Stats, Executive Summary (structured list), Procurement Radar, Storage Distribution chart |
+| **Owner/Manager Dashboards** | Stats, Executive Summary (structured list), Procurement Radar, Storage Distribution chart, High Demand Products chart |
 | **Forecasting** | 3-tab UI: Consumption (HTMX risk filter) + Supplier Radar (60s polling) + Stockout Timeline (Chart.js) |
 | **Procurement Radar** | "Active Hunter" — upcoming supplier delivery windows, Refresh + auto-polling on dashboards |
 | **PO Manager** | Alerts → PRs → Supplier emails (deterministic templates) |
