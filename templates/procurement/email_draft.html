@@ -1,26 +1,519 @@
 {% extends "base.html" %}
-{% block title %}PO Email Draft · PR-{{ obj.pk|stringformat:"04d" }}{% endblock %}
-{% block page_title %}PO Email Draft - PR-{{ obj.pk|stringformat:"04d" }}{% endblock %}
+{% load static %}
+
+{% block title %}PO Dispatch · PR-{{ obj.pk|stringformat:"04d" }} · INVENTIQ{% endblock %}
+{% block page_title %}PO Supplier Dispatch - PR-{{ obj.pk|stringformat:"04d" }}{% endblock %}
+
 {% block content %}
-<div class="panel" style="max-width:800px">
-  <div class="d-flex justify-content-between align-items-start mb-3">
-    <div>
-      <h5 class="mb-1">{{ subject }}</h5>
-      <div class="muted">Ingredient: <strong>{{ obj.ingredient.name }}</strong> · {{ obj.requested_quantity }} {{ obj.ingredient.unit }} · Priority {{ obj.get_priority_display }} · Supplier: {% if obj.supplier %}{{ obj.supplier.company_name }} ({{ obj.supplier.email }}){% elif obj.ingredient.supplier_fk %}{{ obj.ingredient.supplier_fk.company_name }} ({{ obj.ingredient.supplier_fk.email }}){% else %}No linked supplier{% endif %}</div>
+<div class="dispatch-container py-2">
+
+  <!-- BREADCRUMB & BACK NAVIGATION -->
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div class="d-flex align-items-center gap-2 text-sm" style="color: var(--muted); font-size: 13px;">
+      <a href="{% url 'procurement' %}" class="hover:underline" style="color: var(--brand-maroon); font-weight: 600;">Procurement</a>
+      <span>/</span>
+      <span class="fw-bold text-dark">PR-{{ obj.pk|stringformat:"04d" }}</span>
+      <span>/</span>
+      <span>Supplier Dispatch Hub</span>
     </div>
-    <a href="{% url 'procurement' %}" class="btn btn-light btn-sm">Back</a>
+    <a href="{% url 'procurement' %}" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1">
+      <i class="bi bi-arrow-left"></i>
+      <span>Back to Procurement</span>
+    </a>
   </div>
-  <div class="mb-3">
-    <label class="form-label fw-semibold">Subject</label>
-    <input class="form-control" value="{{ subject }}" readonly onclick="this.select()">
+
+  <!-- PAGE HEADER & STATUS ACTION -->
+  <div class="panel p-3 mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <div>
+        <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+          <h2 class="h4 fw-bold mb-0 text-slate-900">Purchase Order Dispatch: PR-{{ obj.pk|stringformat:"04d" }}</h2>
+          <span class="status-badge status-{{ obj.status|lower }}">{{ obj.get_status_display }}</span>
+          <span class="badge {% if obj.priority == 'CRITICAL' %}bg-danger{% elif obj.priority == 'HIGH' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+            Priority: {{ obj.get_priority_display }}
+          </span>
+          {% if obj.auto_generated %}
+          <span class="badge bg-light text-secondary border">
+            <i class="bi bi-cpu me-1"></i> AI Forecast
+          </span>
+          {% endif %}
+        </div>
+        <p class="mb-0 text-muted" style="font-size: 13px;">
+          Send official order instructions to <strong>{{ supplier.company_name|default:"Supplier" }}</strong> via <strong>Viber Instant Message</strong> or <strong>Email Draft</strong>.
+        </p>
+      </div>
+
+      <!-- WORKFLOW ACTIONS -->
+      <div class="d-flex align-items-center gap-2">
+        {% if obj.status == 'PENDING' or obj.status == 'APPROVED' %}
+        <form method="post" class="d-inline">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="mark_ordered">
+          <button type="submit" class="btn btn-outline-success btn-sm px-3 py-2 fw-semibold" onclick="return confirm('Mark PR-{{ obj.pk|stringformat:"04d" }} as dispatched (ORDERED)?');">
+            <i class="bi bi-check2-circle me-1"></i> Mark as Dispatched (ORDERED)
+          </button>
+        </form>
+        {% elif obj.status == 'ORDERED' %}
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2">
+          <i class="bi bi-truck me-1"></i> Dispatched · Awaiting Delivery
+        </span>
+        {% elif obj.status == 'DELIVERED' %}
+        <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
+          <i class="bi bi-check-all me-1"></i> Fulfilled & Restocked
+        </span>
+        {% endif %}
+      </div>
+    </div>
   </div>
-  <div class="mb-3">
-    <label class="form-label fw-semibold">Email Body (Auto-Generated)</label>
-    <textarea class="form-control" rows="12" readonly onclick="this.select()">{{ body }}</textarea>
+
+  <!-- MAIN 2-COLUMN DISPATCH GRID -->
+  <div class="row g-4">
+
+    <!-- ==========================================
+         LEFT COLUMN: ORDER OVERVIEW & SUPPLIER PROFILE
+         ========================================== -->
+    <div class="col-lg-4">
+
+      <!-- CARD 1: ORDER OVERVIEW -->
+      <div class="panel p-3 mb-4">
+        <div class="panel-header px-0 pt-0 pb-2 mb-3 border-bottom">
+          <h3 class="h6 fw-bold mb-0 text-slate-800">
+            <i class="bi bi-box-seam me-1 text-primary"></i> Order Details
+          </h3>
+        </div>
+
+        <div class="mb-3">
+          <div class="text-muted small">Ingredient Item</div>
+          <div class="fw-bold fs-5 text-dark">{{ obj.ingredient.name }}</div>
+          <div class="mt-1">
+            <span class="badge bg-light text-dark border">
+              {{ obj.ingredient.get_category_display|default:obj.ingredient.category }}
+            </span>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-3 mb-3" style="background: rgba(254, 95, 16, 0.08); border: 1px solid rgba(254, 95, 16, 0.2);">
+          <div class="text-xs text-uppercase fw-bold" style="color: #C94A0C; font-size: 11px;">Requested Quantity</div>
+          <div class="fs-3 fw-bold" style="color: #871F09;">
+            {{ obj.requested_quantity }} <span class="fs-6 text-muted">{{ obj.ingredient.unit }}</span>
+          </div>
+          {% if obj.unit_price and obj.unit_price > 0 %}
+          <div class="small text-muted mt-1">Est. Price: ₱{{ obj.unit_price }} / {{ obj.ingredient.unit }}</div>
+          {% endif %}
+        </div>
+
+        <div class="small mb-3">
+          <div class="d-flex justify-content-between py-1 border-bottom">
+            <span class="text-muted">Current Stock:</span>
+            <span class="fw-semibold">{{ obj.ingredient.quantity }} {{ obj.ingredient.unit }}</span>
+          </div>
+          <div class="d-flex justify-content-between py-1 border-bottom">
+            <span class="text-muted">Min Threshold:</span>
+            <span class="fw-semibold">{{ obj.ingredient.minimum_stock }} {{ obj.ingredient.unit }}</span>
+          </div>
+          <div class="d-flex justify-content-between py-1 border-bottom">
+            <span class="text-muted">Max Capacity:</span>
+            <span class="fw-semibold">{{ obj.ingredient.maximum_stock }} {{ obj.ingredient.unit }}</span>
+          </div>
+          <div class="d-flex justify-content-between py-1">
+            <span class="text-muted">Created By:</span>
+            <span class="fw-semibold">{{ obj.requested_by.username|default:"System" }}</span>
+          </div>
+        </div>
+
+        {% if obj.reason %}
+        <div class="p-2 rounded bg-light border text-xs text-muted" style="font-size: 12px;">
+          <strong>Order Reason:</strong> {{ obj.reason }}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- CARD 2: SUPPLIER CONTACT & VIBER PROFILE -->
+      <div class="panel p-3">
+        <div class="panel-header px-0 pt-0 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-center">
+          <h3 class="h6 fw-bold mb-0 text-slate-800">
+            <i class="bi bi-building me-1 text-primary"></i> Supplier Profile
+          </h3>
+          {% if supplier %}
+          <button class="btn btn-link btn-sm p-0 text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#editPhoneCollapse">
+            <i class="bi bi-pencil-square"></i> Edit Phone
+          </button>
+          {% endif %}
+        </div>
+
+        {% if supplier %}
+        <div class="mb-3">
+          <div class="fw-bold fs-6 text-dark">{{ supplier.company_name }}</div>
+          <div class="text-muted small">Contact: <strong>{{ supplier.contact_person|default:"Procurement Desk" }}</strong></div>
+        </div>
+
+        <!-- VIBER NUMBER STATUS -->
+        <div class="p-3 rounded-3 mb-3" style="background: #F5F3FF; border: 1px solid #DDD6FE;">
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <span class="badge-viber">
+              <i class="bi bi-chat-dots-fill"></i> Viber Contact
+            </span>
+            {% if viber_digits %}
+            <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 10px;">
+              Active
+            </span>
+            {% else %}
+            <span class="badge bg-warning-subtle text-warning border border-warning-subtle" style="font-size: 10px;">
+              Missing
+            </span>
+            {% endif %}
+          </div>
+          
+          <div class="fs-5 fw-bold text-dark mt-1">
+            {% if supplier_phone %}
+              {{ supplier_phone }}
+            {% else %}
+              <span class="text-muted fst-italic fs-6">No phone number registered</span>
+            {% endif %}
+          </div>
+
+          <div class="small text-muted mt-1" style="font-size: 11px;">
+            {% if viber_digits %}
+              Linked to Viber international format: <code>+{{ viber_digits }}</code>
+            {% else %}
+              Please add a mobile/Viber number to enable direct 1-click Viber dispatch.
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- COLLAPSIBLE PHONE UPDATE FORM -->
+        <div class="collapse mb-3 {% if not supplier_phone %}show{% endif %}" id="editPhoneCollapse">
+          <form method="post" class="p-2 border rounded bg-light">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_phone">
+            <label class="form-label small fw-semibold mb-1">Update Viber / Mobile Number:</label>
+            <div class="input-group input-group-sm">
+              <input type="text" name="phone" class="form-control" value="{{ supplier_phone }}" placeholder="e.g. +63 917 555 0101" required>
+              <button class="btn btn-primary" type="submit">Save</button>
+            </div>
+            <div class="text-muted" style="font-size: 10px; margin-top: 4px;">Supports Philippine formats: 09XXXXXXXXX or +63 9XXXXXXXXX</div>
+          </form>
+        </div>
+
+        <!-- EMAIL & DETAILS -->
+        <div class="small">
+          <div class="d-flex justify-content-between py-1 border-bottom">
+            <span class="text-muted">Email Address:</span>
+            <span class="fw-semibold text-truncate ms-2" title="{{ supplier.email }}">{{ supplier.email|default:"None on file" }}</span>
+          </div>
+          <div class="d-flex justify-content-between py-1 border-bottom">
+            <span class="text-muted">Lead Time:</span>
+            <span class="fw-semibold">{{ supplier.lead_time_days }} business days</span>
+          </div>
+          <div class="d-flex justify-content-between py-1">
+            <span class="text-muted">Supplier Rating:</span>
+            <span class="fw-semibold">{{ supplier.rating|default:"5.00" }} / 5.00 ★</span>
+          </div>
+        </div>
+
+        {% else %}
+        <div class="text-muted small p-3 text-center bg-light rounded">
+          No supplier profile linked to this procurement request.
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- ==========================================
+         RIGHT COLUMN: DISPATCH WORKSPACE (TABBED PANEL)
+         ========================================== -->
+    <div class="col-lg-8">
+
+      <!-- INTEGRATED TABBED PANEL -->
+      <div class="panel overflow-hidden">
+
+        <!-- SECTION TABS HEADER -->
+        <div class="panel-tabs-bar">
+          <ul class="nav nav-tabs section-tabs" id="dispatchTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link tab-viber active" id="tab-viber-btn" data-bs-toggle="tab" data-bs-target="#tab-viber-pane" type="button" role="tab" aria-controls="tab-viber-pane" aria-selected="true">
+                <i class="bi bi-chat-dots-fill text-purple-600"></i>
+                <span>Viber Dispatch (Preferred)</span>
+                <span class="badge" style="background: #EDE9FE; color: #6D28D9; font-size: 10px; margin-left: 2px;">Direct Chat</span>
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link tab-email" id="tab-email-btn" data-bs-toggle="tab" data-bs-target="#tab-email-pane" type="button" role="tab" aria-controls="tab-email-pane" aria-selected="false">
+                <i class="bi bi-envelope-fill text-orange-600"></i>
+                <span>Official Email Draft</span>
+                <span class="badge bg-light text-secondary border" style="font-size: 10px; margin-left: 2px;">Mail Client</span>
+              </button>
+            </li>
+          </ul>
+        </div>
+
+        <!-- TAB CONTENT PANES -->
+        <div class="tab-content p-4" id="dispatchTabsContent">
+
+          <!-- ========================================================
+               TAB PANE 1: VIBER DISPATCH
+               ======================================================== -->
+          <div class="tab-pane fade show active" id="tab-viber-pane" role="tabpanel" aria-labelledby="tab-viber-btn">
+            
+            <!-- VIBER CHANNEL HEADER -->
+            <div class="d-flex flex-wrap justify-content-between align-items-center pb-3 mb-3 border-bottom">
+              <div class="d-flex align-items-center gap-3">
+                <div class="d-flex align-items-center justify-content-center rounded-3" style="width: 44px; height: 44px; background: #7360F2; color: #fff; font-size: 20px;">
+                  <i class="bi bi-chat-dots-fill"></i>
+                </div>
+                <div>
+                  <h4 class="h6 fw-bold mb-0 text-slate-900">Viber Instant Purchase Order</h4>
+                  <p class="text-muted small mb-0" style="font-size: 12px;">
+                    Direct message formatted with emoji & bold tags for mobile/desktop Viber chat.
+                  </p>
+                </div>
+              </div>
+
+              <div class="text-end">
+                {% if viber_digits %}
+                <span class="badge-viber">
+                  <i class="bi bi-telephone-fill"></i> Recipient: {{ supplier_phone }}
+                </span>
+                {% else %}
+                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
+                  <i class="bi bi-exclamation-triangle"></i> No Phone Saved
+                </span>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- VIBER TEXTAREA -->
+            <div class="mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label fw-bold mb-0" style="font-size: 13px; color: var(--brand-dark);">
+                  Viber Message Content (Editable)
+                </label>
+                <span class="text-muted small" style="font-size: 11px;">
+                  Click to select all · Formatted for Viber app
+                </span>
+              </div>
+
+              <textarea 
+                id="viberMessageText" 
+                class="form-control font-monospace" 
+                rows="13" 
+                style="font-size: 13px; line-height: 1.5; border-radius: 10px; background-color: #FAFAFC; border: 1px solid #DDD6FE;"
+                onclick="this.select()"
+              >{{ viber_message }}</textarea>
+
+              <div class="d-flex justify-content-between align-items-center mt-2 text-muted" style="font-size: 11px;">
+                <span><i class="bi bi-info-circle me-1"></i> Asterisks like <code>*Text*</code> render in bold inside Viber.</span>
+                <span id="viberCharCount"></span>
+              </div>
+            </div>
+
+            <!-- VIBER ACTION TOOLBAR -->
+            <div class="d-flex flex-wrap gap-2 pt-2 border-top">
+              {% if viber_chat_url %}
+              <a href="{{ viber_chat_url }}" class="btn btn-viber px-4 py-2" target="_blank" rel="noopener">
+                <i class="bi bi-box-arrow-up-right me-1"></i>
+                <span>Open Viber Chat</span>
+              </a>
+              {% else %}
+              <button type="button" class="btn btn-viber px-4 py-2" onclick="promptForViberPhone()">
+                <i class="bi bi-telephone-plus me-1"></i>
+                <span>Set Phone & Launch Viber</span>
+              </button>
+              {% endif %}
+
+              <button type="button" class="btn btn-outline-secondary px-3 py-2 fw-semibold" onclick="copyViberMessage()">
+                <i class="bi bi-clipboard me-1"></i>
+                <span>Copy Viber Message</span>
+              </button>
+
+              <a href="{{ viber_forward_url }}" class="btn btn-outline-secondary px-3 py-2 fw-semibold" target="_blank" rel="noopener">
+                <i class="bi bi-share me-1"></i>
+                <span>Share / Forward in Viber</span>
+              </a>
+            </div>
+
+          </div>
+
+          <!-- ========================================================
+               TAB PANE 2: EMAIL DRAFT
+               ======================================================== -->
+          <div class="tab-pane fade" id="tab-email-pane" role="tabpanel" aria-labelledby="tab-email-btn">
+
+            <!-- EMAIL CHANNEL HEADER -->
+            <div class="d-flex flex-wrap justify-content-between align-items-center pb-3 mb-3 border-bottom">
+              <div class="d-flex align-items-center gap-3">
+                <div class="d-flex align-items-center justify-content-center rounded-3" style="width: 44px; height: 44px; background: var(--brand-orange); color: #fff; font-size: 20px;">
+                  <i class="bi bi-envelope-fill"></i>
+                </div>
+                <div>
+                  <h4 class="h6 fw-bold mb-0 text-slate-900">Official Purchase Order Email Draft</h4>
+                  <p class="text-muted small mb-0" style="font-size: 12px;">
+                    Formal PO dispatch letter ready for Outlook, Gmail, or default mail client.
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                {% if supplier and supplier.email %}
+                <span class="badge bg-light text-dark border">
+                  To: {{ supplier.email }}
+                </span>
+                {% else %}
+                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
+                  No Email on File
+                </span>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- RECIPIENT & SUBJECT -->
+            <div class="row g-2 mb-3">
+              <div class="col-md-5">
+                <label class="form-label fw-bold mb-1" style="font-size: 13px;">Recipient (To)</label>
+                <div class="input-group input-group-sm">
+                  <input type="text" id="emailRecipient" class="form-control" value="{{ supplier.email|default:'' }}" readonly onclick="this.select()">
+                  <button class="btn btn-outline-secondary" type="button" onclick="copyField('emailRecipient', 'Email recipient copied!')">
+                    <i class="bi bi-clipboard"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="col-md-7">
+                <label class="form-label fw-bold mb-1" style="font-size: 13px;">Email Subject</label>
+                <div class="input-group input-group-sm">
+                  <input type="text" id="emailSubject" class="form-control" value="{{ subject }}" readonly onclick="this.select()">
+                  <button class="btn btn-outline-secondary" type="button" onclick="copyField('emailSubject', 'Subject line copied!')">
+                    <i class="bi bi-clipboard"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- EMAIL BODY -->
+            <div class="mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label fw-bold mb-0" style="font-size: 13px;">Email Body (Clean - No Redundant Subject)</label>
+                <span class="text-muted small" style="font-size: 11px;">Click to select all</span>
+              </div>
+
+              <textarea 
+                id="emailBodyText" 
+                class="form-control font-monospace" 
+                rows="13" 
+                style="font-size: 13px; line-height: 1.5; border-radius: 10px; background-color: #FAFAFC;"
+                onclick="this.select()"
+              >{{ body }}</textarea>
+            </div>
+
+            <!-- EMAIL ACTION TOOLBAR -->
+            <div class="d-flex flex-wrap gap-2 pt-2 border-top">
+              {% if supplier and supplier.email %}
+              <a href="mailto:{{ supplier.email }}?subject={{ subject|urlencode }}&body={{ body|urlencode }}" class="btn btn-success px-4 py-2 fw-semibold">
+                <i class="bi bi-envelope-fill me-1"></i>
+                <span>Open in Mail Client</span>
+              </a>
+              {% endif %}
+
+              <button type="button" class="btn btn-outline-secondary px-3 py-2 fw-semibold" onclick="copyEmailBody()">
+                <i class="bi bi-clipboard me-1"></i>
+                <span>Copy Email Body</span>
+              </button>
+
+              <button type="button" class="btn btn-outline-secondary px-3 py-2 fw-semibold" onclick="copyFullEmail()">
+                <i class="bi bi-file-earmark-text me-1"></i>
+                <span>Copy Full Email (Subject + Body)</span>
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
   </div>
-  <div class="d-flex gap-2">
-    <button class="btn btn-primary" onclick="navigator.clipboard.writeText(document.querySelector('textarea').value); alert('Copied to clipboard');"><i class="bi bi-clipboard me-1"></i> Copy</button>
-    {% if obj.supplier and obj.supplier.email %}<a href="mailto:{{ obj.supplier.email }}?subject={{ subject|urlencode }}&body={{ body|urlencode }}" class="btn btn-success"><i class="bi bi-envelope me-1"></i> Open Mail Client</a>{% endif %}
-  </div>
+
 </div>
+
+<!-- SCRIPT: INTERACTION & CLIPBOARD -->
+<script>
+
+function copyViberMessage() {
+  const el = document.getElementById('viberMessageText');
+  if (!el) return;
+  navigator.clipboard.writeText(el.value).then(() => {
+    if (window.showToast) {
+      window.showToast("Viber message copied! Ready to paste into Viber chat.", "success");
+    } else {
+      alert("Viber message copied!");
+    }
+  }).catch(() => {
+    el.select();
+    document.execCommand('copy');
+    if (window.showToast) window.showToast("Viber message copied!", "success");
+  });
+}
+
+function copyEmailBody() {
+  const el = document.getElementById('emailBodyText');
+  if (!el) return;
+  navigator.clipboard.writeText(el.value).then(() => {
+    if (window.showToast) {
+      window.showToast("Email body copied to clipboard!", "success");
+    } else {
+      alert("Email body copied!");
+    }
+  }).catch(() => {
+    el.select();
+    document.execCommand('copy');
+    if (window.showToast) window.showToast("Email body copied!", "success");
+  });
+}
+
+function copyField(elementId, successMsg) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  navigator.clipboard.writeText(el.value).then(() => {
+    if (window.showToast) window.showToast(successMsg, "success");
+  });
+}
+
+function copyFullEmail() {
+  const subject = document.getElementById('emailSubject').value;
+  const body = document.getElementById('emailBodyText').value;
+  const fullText = "Subject: " + subject + "\n\n" + body;
+  navigator.clipboard.writeText(fullText).then(() => {
+    if (window.showToast) {
+      window.showToast("Full email (Subject + Body) copied!", "success");
+    } else {
+      alert("Full email copied!");
+    }
+  });
+}
+
+function promptForViberPhone() {
+  const collapseEl = document.getElementById('editPhoneCollapse');
+  if (collapseEl) {
+    const bsCollapse = new bootstrap.Collapse(collapseEl, { show: true });
+    collapseEl.scrollIntoView({ behavior: 'smooth' });
+    const input = collapseEl.querySelector('input[name="phone"]');
+    if (input) input.focus();
+  }
+}
+
+// Update live character count
+document.addEventListener('DOMContentLoaded', () => {
+  const viberText = document.getElementById('viberMessageText');
+  const countEl = document.getElementById('viberCharCount');
+  if (viberText && countEl) {
+    const updateCount = () => {
+      countEl.textContent = viberText.value.length + " characters";
+    };
+    viberText.addEventListener('input', updateCount);
+    updateCount();
+  }
+});
+</script>
 {% endblock %}

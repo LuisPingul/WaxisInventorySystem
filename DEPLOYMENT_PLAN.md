@@ -12,17 +12,19 @@ Deploy the Django monolith to Render Free tier + Supabase Free Singapore, no Ver
 
 ---
 
-## 🟢 SESSION STATE (2026-09-22) — **RESUME HERE**
+## 🟢 SESSION STATE (2026-09-30) — **RESUME HERE**
 
 ### ✅ COMPLETED
-- Forecasting UI finished (`c568432`): `forecasting/selectors.py` shared enrichment, brand-aligned radar (`radar-card`), HTMX `HX-Redirect` order flow, deduplicated `_forecast_table.html`/`_radar_panel.html` partials, dual-risk owner highlights, timeline chart, variance UI, radar polling
-- Doughnut chart blank fix (local, uncommitted): `_chart_data()` returned `json.dumps()` string double-encoded by `|json_script` → now returns `dict`; empty-data guard in owner/manager templates
-- Dashboard batch (local, uncommitted): View All → Forecast redirects (`?tab=radar` deep link, `forecast_partial` removed), Owner summary = Manager summary, seamless topbar, hidden sidebar scrollbar, High Demand line chart (Owner + Manager, rolling-30d daily series), doughnut product tooltips (Owner + Manager)
-- `requirements.txt`: Django 4.2 LTS, `gunicorn>=22.0` `whitenoise>=6.6` `dj-database-url>=2.2` (no `google-generativeai`)
-- `config/settings.py`: `DATABASE_URL` pooler parse (`ssl_require=True`, `conn_max_age=0`), `ALLOWED_HOSTS .onrender.com` auto, `CSRF_TRUSTED_ORIGINS`, `STATIC_ROOT` + `WhiteNoise`, `SECURE_PROXY_SSL_HEADER`, `sslmode=require` fallback
-- `.env.example`: + `DATABASE_URL`, `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`
-- `render.yaml`: Free Web + Cron (`0 18 * * * compute_forecasts`) Blueprint
-- Local verify: `manage.py check` 0, `collectstatic`, `backfill_inbound_shipments`, `compute_forecasts` (consumption + rhythm)
+- **UI/UX Modernization & Ergonomics (2026-09-30)**:
+  - **Split-Screen Responsive Login** (`templates/accounts/login.html`): `lg:flex-row` desktop showcase with brand pillars + mobile touch card, password toggle, 16px iOS zoom protection, semantic status pills.
+  - **Dedicated Crew 2-Tab Navigation** (`templates/base.html`, `dashboard/views.py`, `inventory/views.py`): Crew restricted strictly to `Deduct Stock` and `My Transactions`, auto-landing on Kitchen Hub, general inventory role-guarded.
+  - **Kitchen Touch Ergonomics** (`_deduct_card.html`): 48px touch targets, quick-increment pills (`+1`, `+5`, `+10`, `Max`), zero-stock guards, HTTP 422 error handling.
+  - **Logout Session Message Leak Fix** (`accounts/views.py`, `inventory/views.py`, `config/settings.py`): Message storage purged on logout, HTMX partials prevented from poisoning cookies, `MESSAGE_TAGS` 25 error override removed.
+  - **Real-Time Inbound Delivery Ingestion** (`procurement/views.py:mark_delivered`): Automatically logs `InboundShipment` records upon PO delivery for continuous Agrilytics rhythm learning.
+  - **Documentation**: Standardized `DESIGN_SYSTEM.md`, renamed and updated `ai_integration.md`, updated `System Design and Architecture Document.md` and `README.md`.
+- **Forecasting UI & Engine (`c568432`)**: `forecasting/selectors.py` shared enrichment, brand-aligned radar (`radar-card`), HTMX `HX-Redirect` order flow, deduplicated partials, dual-risk highlights, timeline chart, variance UI, radar polling.
+- **Doughnut Chart**: Category dynamic binding (`Dry Goods` $\rightarrow$ Amber, `Chilled` $\rightarrow$ Orange, `Frozen` $\rightarrow$ Maroon) with 65% cutout; empty data guards.
+- **Infrastructure Patches**: `requirements.txt` (Django 4.2 LTS, `gunicorn`, `whitenoise`, `dj-database-url`), `render.yaml` Blueprint, `config/settings.py` database pooler + WhiteNoise staticfiles.
 
 ### ⏳ REMAINING (MANUAL)
 | Step | Action | Where | Credentials needed |

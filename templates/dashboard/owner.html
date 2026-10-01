@@ -104,25 +104,7 @@
 </div>
 
 
-<div class="panel mb-3">
-  <div class="panel-header">
-    <h3><i class="bi bi-robot me-1"></i> Executive Summary</h3>
-    <div>
-      {% if ai_summary %}
-        <span class="badge bg-success">Live</span>
-      {% else %}
-        <a hx-get="{% url 'dashboard:ai_summary' %}" hx-target="#ai-summary-box" hx-swap="innerHTML" class="btn btn-sm btn-primary text-white">Generate Report</a>
-      {% endif %}
-    </div>
-  </div>
-  <div id="ai-summary-box" class="p-2">
-    {% if ai_summary %}
-      <div class="alert alert-light border mb-0">{{ ai_summary|safe }}</div>
-    {% else %}
-      <div class="muted" style="font-size:0.9rem">Click Generate to get a health report. Shows pending, low/critical analysis + recommendation.</div>
-    {% endif %}
-  </div>
-</div>
+{% include "dashboard/_executive_summary.html" with summary=executive_summary %}
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 <div class="panel">
@@ -158,7 +140,32 @@
         }
         const ctx = canvas.getContext('2d');
         if (!ctx) { console.warn('Canvas 2D context not available'); return; }
-        const chart = new Chart(ctx, {type:'doughnut', data:{labels:data.labels, datasets:[{data:data.counts, backgroundColor:['#FE5F10','#198754','#871F09']}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}, tooltip:{callbacks:{label:tooltipLabel}}}}});
+        const colorMap = {'Dry': '#FED216', 'Chilled': '#FE5F10', 'Frozen': '#871F09'};
+        const bgColors = data.labels.map(l => colorMap[l] || '#64748B');
+        const chart = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: data.labels,
+            datasets: [{
+              data: data.counts,
+              backgroundColor: bgColors,
+              borderWidth: 2,
+              borderColor: '#FFFFFF'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { boxWidth: 12, padding: 14, font: { family: 'Inter', size: 12, weight: 600 } }
+              },
+              tooltip: { callbacks: { label: tooltipLabel } }
+            }
+          }
+        });
         chart.resize();
         console.log('Storage Distribution chart initialized successfully');
       } catch (e) { console.error('Chart init failed:', e); }
@@ -258,11 +265,11 @@
   <div class="panel-header">
     <h3><i class="bi bi-radar me-1"></i> Procurement Radar</h3>
     <div class="d-flex gap-2">
-      <button class="btn btn-sm btn-light" hx-get="{% url 'forecasting:procurement_radar' %}" hx-target="#procurement-radar-owner" hx-swap="outerHTML"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+      <button class="btn btn-sm btn-light" hx-get="{% url 'forecasting:procurement_radar' %}?radar_id=procurement-radar-owner" hx-target="#procurement-radar-owner" hx-swap="outerHTML"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
       <a href="{% url 'forecasting:forecast' %}?tab=radar" class="btn btn-sm btn-light">View All</a>
     </div>
   </div>
-  <div class="p-2" hx-get="{% url 'forecasting:procurement_radar' %}" hx-trigger="every 90s" hx-target="#procurement-radar-owner" hx-swap="outerHTML">
+  <div class="p-2" hx-get="{% url 'forecasting:procurement_radar' %}?radar_id=procurement-radar-owner" hx-trigger="every 90s" hx-target="#procurement-radar-owner" hx-swap="outerHTML">
     {% include "forecasting/_procurement_radar.html" with alerts=radar_alerts radar_id="procurement-radar-owner" %}
   </div>
 </div>

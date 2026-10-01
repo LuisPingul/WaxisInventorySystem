@@ -25,15 +25,16 @@
 <td>
 {% if item.status == 'PENDING' %}
 <form method="post" action="{% url 'procurement_approve' item.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-success">Approve</button></form>
+<a href="{% url 'procurement_email' item.pk %}" class="btn btn-sm btn-outline-secondary" title="View Viber & Email Dispatch"><i class="bi bi-chat-dots me-1"></i> Dispatch</a>
 <form method="post" action="{% url 'procurement_reject' item.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">Reject</button></form>
 {% elif item.status == 'APPROVED' %}
 <form method="post" action="{% url 'procurement_ordered' item.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-primary">Mark Ordered</button></form>
-<a href="{% url 'procurement_email' item.pk %}" class="btn btn-sm btn-outline-secondary">Email Draft</a>
+<a href="{% url 'procurement_email' item.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-send me-1"></i> Dispatch (Viber/Email)</a>
 {% elif item.status == 'ORDERED' %}
 <form method="post" action="{% url 'procurement_delivered' item.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-success">Mark Delivered</button></form>
-<a href="{% url 'procurement_email' item.pk %}" class="btn btn-sm btn-outline-secondary">Email</a>
+<a href="{% url 'procurement_email' item.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-send me-1"></i> Dispatch</a>
 {% else %}
-<a href="{% url 'procurement_email' item.pk %}" class="btn btn-sm btn-light">View Email</a>
+<a href="{% url 'procurement_email' item.pk %}" class="btn btn-sm btn-light"><i class="bi bi-eye me-1"></i> View Dispatch</a>
 {% endif %}
 </td>
 </tr>

@@ -1,187 +1,308 @@
 {% load static %}
-
 <!doctype html>
-<html lang="en">
+<html lang="en" class="h-full">
 
 <head>
-
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+    <title>Sign In · INVENTIQ | SND Foods International Inc.</title>
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1"
-    >
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <title>Login | INVENTIQ</title>
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-    >
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            maroon: '#871F09',
+                            dark: '#5E1507',
+                            deep: '#3E1006',
+                            orange: '#FE5F10',
+                            yellow: '#FED216',
+                            cream: '#FDF8F4'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
 
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
-        rel="stylesheet"
-    >
-
-    <link
-        rel="stylesheet"
-        href="{% static 'css/style.css' %}?v=brand-dark-871F09"
-    >
-
+    <!-- Custom System Styles -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=brand-split-2026">
 </head>
 
+<body class="h-full bg-brand-cream text-slate-800 antialiased font-sans">
 
-<body class="auth-page">
+<div class="min-h-screen flex flex-col lg:flex-row">
 
+    <!-- =======================================================================
+         LEFT COLUMN: Brand Showcase & Architecture (Desktop / Tablet Landscape)
+         ======================================================================= -->
+    <div class="relative hidden lg:flex lg:w-5/12 xl:w-1/2 flex-col justify-between p-10 xl:p-14 text-white overflow-hidden"
+         style="background: radial-gradient(circle at 20% 15%, rgba(254, 95, 16, 0.22), transparent 35%), radial-gradient(circle at 85% 85%, rgba(254, 210, 22, 0.14), transparent 40%), linear-gradient(145deg, #3E1006 0%, #5E1507 45%, #871F09 100%);">
 
-<div class="login-container">
+        <!-- Decorative background geometric rings -->
+        <div class="absolute -top-24 -left-24 w-96 h-96 rounded-full border border-amber-400/10 pointer-events-none"></div>
+        <div class="absolute top-1/3 -right-24 w-80 h-80 rounded-full border border-orange-400/10 pointer-events-none"></div>
+        <div class="absolute -bottom-32 -left-12 w-[32rem] h-[32rem] rounded-full border border-amber-400/10 pointer-events-none"></div>
 
-    <div class="login-card">
+        <!-- Top Header: Logo + Organization -->
+        <div class="relative z-10 flex items-center gap-3.5">
+            <div class="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 p-2 flex items-center justify-center shadow-lg">
+                <img src="{% static 'images/w-letter-mark.png' %}" alt="Waxi's" class="w-8 h-8 object-contain">
+            </div>
+            <div>
+                <div class="text-xl font-extrabold tracking-wider text-white flex items-center gap-2">
+                    INVENTIQ
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-orange text-white uppercase tracking-widest">v2.0</span>
+                </div>
+                <div class="text-xs font-semibold text-amber-200/80 tracking-wide uppercase">
+                    SND Foods International Inc.
+                </div>
+            </div>
+        </div>
 
-
-        <!-- =========================
-             BRAND
-        ========================== -->
-
-        <div class="login-brand">
-
-            <div class="login-logo-wrap">
-
-                <img
-                    src="{% static 'images/w-letter-mark.png' %}"
-                    alt="Waxi's W Mark"
-                    class="login-logo-image"
-                >
-
+        <!-- Center: Value Proposition & Pillar Highlights -->
+        <div class="relative z-10 my-auto py-8">
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-amber-200 text-xs font-semibold mb-6">
+                <i class="bi bi-shield-check text-brand-orange"></i>
+                <span>Enterprise Kitchen &amp; Supply Chain Portal</span>
             </div>
 
-
-            <h1>INVENTIQ</h1>
-
-            <p>
-                Smart Inventory Management System
+            <h1 class="text-3xl xl:text-4xl 2xl:text-5xl font-extrabold text-white leading-tight tracking-tight">
+                Predictive Intelligence for Kitchen Operations.
+            </h1>
+            <p class="text-amber-100/80 text-sm xl:text-base mt-4 max-w-lg leading-relaxed font-normal">
+                Seamless real-time inventory management with touch-optimized kitchen deductions and dual-mode stockout forecasting.
             </p>
+
+            <!-- 3 Operational Feature Pills -->
+            <div class="mt-8 space-y-3.5 max-w-md">
+                <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 transition-all hover:bg-white/10">
+                    <div class="w-9 h-9 rounded-xl bg-brand-orange/30 border border-brand-orange/40 flex items-center justify-center text-brand-orange flex-shrink-0 text-base">
+                        <i class="bi bi-tablet"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-white">Touch-First Kitchen Hub</h4>
+                        <p class="text-xs text-amber-100/70 mt-0.5">Large 48px touch targets, quick-step deduction pills, and zero-stock guards.</p>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 transition-all hover:bg-white/10">
+                    <div class="w-9 h-9 rounded-xl bg-amber-400/25 border border-amber-400/40 flex items-center justify-center text-brand-yellow flex-shrink-0 text-base">
+                        <i class="bi bi-graph-up-arrow"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-white">Dual-Mode AI Forecasting</h4>
+                        <p class="text-xs text-amber-100/70 mt-0.5">30-day rolling consumption analysis combined with Agrilytics supplier rhythm.</p>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 transition-all hover:bg-white/10">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-400/25 border border-emerald-400/40 flex items-center justify-center text-emerald-300 flex-shrink-0 text-base">
+                        <i class="bi bi-radar"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-white">Active Procurement Radar</h4>
+                        <p class="text-xs text-amber-100/70 mt-0.5">Predicts vendor delivery windows and auto-generates purchase requests.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Footer: Status & Integrity -->
+        <div class="relative z-10 flex items-center justify-between text-xs text-amber-200/60 pt-4 border-t border-white/10">
+            <span class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>All services online · Manila (PHT)</span>
+            </span>
+            <span>&copy; SND Foods International Inc.</span>
+        </div>
+    </div>
+
+
+    <!-- =======================================================================
+         RIGHT COLUMN: Authentication Form (Responsive for Mobile & Desktop)
+         ======================================================================= -->
+    <div class="flex-1 flex flex-col justify-center items-center p-6 sm:p-10 lg:p-12 xl:p-16 relative">
+
+        <!-- Mobile-Only Brand Header (< lg) -->
+        <div class="w-full max-w-md lg:hidden text-center mb-8">
+            <div class="inline-flex w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-maroon to-brand-orange p-3 shadow-md items-center justify-center mb-3">
+                <img src="{% static 'images/w-letter-mark.png' %}" alt="Waxi's Logo" class="w-10 h-10 object-contain">
+            </div>
+            <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">INVENTIQ</h1>
+            <p class="text-xs font-semibold text-brand-orange uppercase tracking-wider mt-0.5">
+                SND Foods International Inc.
+            </p>
+        </div>
+
+        <!-- Main Card Container -->
+        <div class="w-full max-w-md bg-white rounded-3xl p-7 sm:p-10 shadow-xl shadow-slate-200/60 border border-slate-100 relative">
+
+            <!-- Card Header -->
+            <div class="mb-6">
+                <div class="hidden lg:flex items-center gap-2 mb-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-brand-orange"></span>
+                    <span class="text-xs font-bold text-brand-orange uppercase tracking-wider">Kitchen &amp; Operations Portal</span>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                    Welcome back
+                </h2>
+                <p class="text-sm text-slate-500 mt-1.5">
+                    Sign in with your workspace credentials to access inventory.
+                </p>
+            </div>
+
+            <!-- Messages / Error Alerts -->
+            {% if messages %}
+                <div class="mb-5 space-y-2">
+                    {% for message in messages %}
+                        {% if 'success' in message.tags %}
+                            <div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm font-medium text-emerald-800 flex items-start gap-2.5">
+                                <i class="bi bi-check-circle-fill text-emerald-500 text-base flex-shrink-0 mt-0.5"></i>
+                                <span>{{ message }}</span>
+                            </div>
+                        {% elif 'warning' in message.tags %}
+                            <div class="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-sm font-medium text-amber-800 flex items-start gap-2.5">
+                                <i class="bi bi-exclamation-triangle-fill text-amber-500 text-base flex-shrink-0 mt-0.5"></i>
+                                <span>{{ message }}</span>
+                            </div>
+                        {% else %}
+                            <div class="p-3.5 rounded-xl bg-red-50 border border-red-200 text-sm font-medium text-red-700 flex items-start gap-2.5 animate-shake">
+                                <i class="bi bi-exclamation-circle-fill text-red-500 text-base flex-shrink-0 mt-0.5"></i>
+                                <span>{{ message }}</span>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <!-- Login Form -->
+            <form method="POST" action="{% url 'accounts:login' %}" novalidate class="space-y-4">
+                {% csrf_token %}
+
+                <!-- Username Field -->
+                <div>
+                    <label for="username" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                        Username
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                            <i class="bi bi-person text-lg"></i>
+                        </div>
+                        <input
+                            type="text"
+                            id="username"
+                            name="username"
+                            placeholder="e.g. crew, manager, owner"
+                            autocomplete="username"
+                            required
+                            autofocus
+                            class="w-full min-h-[48px] pl-11 pr-4 py-3 bg-slate-50/70 border border-slate-200 rounded-xl text-base text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent focus:bg-white transition-all"
+                        >
+                    </div>
+                </div>
+
+                <!-- Password Field with Show/Hide Toggle -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label for="password" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            Password
+                        </label>
+                    </div>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                            <i class="bi bi-lock text-lg"></i>
+                        </div>
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            placeholder="Enter your password"
+                            autocomplete="current-password"
+                            required
+                            class="w-full min-h-[48px] pl-11 pr-12 py-3 bg-slate-50/70 border border-slate-200 rounded-xl text-base text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent focus:bg-white transition-all"
+                        >
+                        <!-- Password Visibility Toggle Button -->
+                        <button
+                            type="button"
+                            id="togglePasswordBtn"
+                            onclick="togglePasswordVisibility()"
+                            aria-label="Toggle password visibility"
+                            class="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none transition-colors"
+                        >
+                            <i id="passwordToggleIcon" class="bi bi-eye text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sign In Submit Button (48px Touch Target) -->
+                <button
+                    type="submit"
+                    class="w-full min-h-[50px] mt-2 py-3.5 px-5 rounded-xl font-bold text-base text-white bg-gradient-to-r from-brand-orange to-amber-500 hover:from-[#E04F08] hover:to-amber-600 active:scale-[0.99] transition-all shadow-md shadow-brand-orange/20 flex items-center justify-center gap-2.5 cursor-pointer"
+                >
+                    <span>Sign In</span>
+                    <i class="bi bi-arrow-right text-lg"></i>
+                </button>
+            </form>
+
+            <!-- Role Guidance & Security Guarantee -->
+            <div class="mt-6 pt-5 border-t border-slate-100 flex flex-col gap-2.5 text-center">
+                <div class="flex items-center justify-center gap-2 text-xs font-semibold text-slate-500">
+                    <span class="inline-flex items-center gap-1"><i class="bi bi-person-badge"></i> Crew</span>
+                    <span>&bull;</span>
+                    <span class="inline-flex items-center gap-1"><i class="bi bi-shield-shaded"></i> Manager</span>
+                    <span>&bull;</span>
+                    <span class="inline-flex items-center gap-1"><i class="bi bi-award"></i> Owner</span>
+                </div>
+                <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
+                    <i class="bi bi-lock-fill text-emerald-500"></i>
+                    <span>Encrypted role-authenticated session access</span>
+                </div>
+            </div>
 
         </div>
 
-
-        <!-- =========================
-             MESSAGES
-        ========================== -->
-
-        {% if messages %}
-
-            {% for message in messages %}
-
-                <div class="alert alert-danger login-alert">
-                    {{ message }}
-                </div>
-
-            {% endfor %}
-
-        {% endif %}
-
-
-        <!-- =========================
-             LOGIN FORM
-        ========================== -->
-
-        <form
-            method="POST"
-            novalidate
-        >
-
-            {% csrf_token %}
-
-
-            <!-- USERNAME -->
-
-            <div class="form-group">
-
-                <label for="username">
-                    Username
-                </label>
-
-                <div class="input-wrap">
-
-                    <i class="bi bi-person"></i>
-
-                    <input
-                        type="text"
-                        id="username"
-                        name="username"
-                        placeholder="Enter your username"
-                        autocomplete="username"
-                        required
-                        autofocus
-                    >
-
-                </div>
-
-            </div>
-
-
-            <!-- PASSWORD -->
-
-            <div class="form-group">
-
-                <label for="password">
-                    Password
-                </label>
-
-                <div class="input-wrap">
-
-                    <i class="bi bi-lock"></i>
-
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        placeholder="Enter your password"
-                        autocomplete="current-password"
-                        required
-                    >
-
-                </div>
-
-            </div>
-
-
-            <!-- LOGIN BUTTON -->
-
-            <button
-                type="submit"
-                class="login-button"
-            >
-
-                <span>
-                    Sign In
-                </span>
-
-                <i class="bi bi-arrow-right"></i>
-
-            </button>
-
-        </form>
-
-
-        <!-- FOOTER -->
-
-        <p class="login-footer">
-
-            <i class="bi bi-shield-check"></i>
-
-            Secure access to your INVENTIQ workspace
-
-        </p>
-
+        <!-- Mobile-Only Copyright Footer (< lg) -->
+        <div class="mt-8 text-center text-xs text-slate-400 lg:hidden">
+            &copy; SND Foods International Inc. · INVENTIQ
+        </div>
 
     </div>
 
 </div>
 
+<!-- Password Toggle Script -->
+<script>
+    function togglePasswordVisibility() {
+        const input = document.getElementById('password');
+        const icon = document.getElementById('passwordToggleIcon');
+        if (!input || !icon) return;
+
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('bi-eye');
+            icon.classList.add('bi-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('bi-eye-slash');
+            icon.classList.add('bi-eye');
+        }
+    }
+</script>
 
 </body>
-
 </html>

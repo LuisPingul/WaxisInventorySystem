@@ -54,6 +54,9 @@ def redirect_by_role(user):
 
 @login_required
 def logout_view(request):
+    # Consume and clear any unread messages from previous authenticated actions
+    # to ensure internal business/inventory alerts never leak to the public login screen.
+    list(messages.get_messages(request))
     logout(request)
     messages.success(request, "You have been logged out.")
     return redirect("accounts:login")

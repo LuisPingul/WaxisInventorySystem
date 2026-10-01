@@ -23,6 +23,10 @@ def can_manage_inventory(user):
 
 @login_required
 def inventory_list(request):
+    role = getattr(getattr(request.user, "profile", None), "role", None)
+    if role == Profile.Role.CREW:
+        return redirect("deduct_stock")
+
     ingredients = Ingredient.objects.select_related("supplier_fk").all()
     q = request.GET.get("q", "").strip()
     category = request.GET.get("category", "")
@@ -178,25 +182,38 @@ def deduct_stock(request, item_id=None):
                             f"{ingredient.name}: {previous} {ingredient.unit} -> {ingredient.quantity} {ingredient.unit}; quantity deducted: {amount} {ingredient.unit}.",
                         )
 
-                        if ingredient.status in {"LOW", "CRITICAL", "OUT"}:
-                            messages.warning(
-                                request,
-                                f"{ingredient.name} is now {ingredient.status_label.lower()}.",
-                            )
-                        else:
-                            messages.success(request, "Stock deduction recorded successfully.")
+                        if not request.htmx:
+                            if ingredient.status in {"LOW", "CRITICAL", "OUT"}:
+                                messages.warning(
+                                    request,
+                                    f"{ingredient.name} is now {ingredient.status_label.lower()}.",
+                                )
+                            else:
+                                messages.success(request, "Stock deduction recorded successfully.")
 
-                # Return updated card partial for HTMX swap
+            # If there are form errors (validation errors or quantity exceeded)
+            if form.errors:
                 if request.htmx:
-                    form = StockDeductionForm(initial_ingredient=ingredient)
                     html = render_to_string("inventory/_deduct_card.html", {
                         "item": ingredient, "form": form, "disabled": ingredient.quantity == 0
                     }, request=request)
-                    response = HttpResponse(html)
-                    response["HX-Trigger"] = "showToast"  # Trigger toast
-                    return response
-                
+                    return HttpResponse(html, status=422)
+                for err_list in form.errors.values():
+                    for err in err_list:
+                        messages.error(request, err)
                 return redirect("deduct_stock")
+
+            # Return updated card partial with fresh form for HTMX swap
+            if request.htmx:
+                fresh_form = StockDeductionForm(initial_ingredient=ingredient)
+                html = render_to_string("inventory/_deduct_card.html", {
+                    "item": ingredient, "form": fresh_form, "disabled": ingredient.quantity == 0
+                }, request=request)
+                response = HttpResponse(html)
+                response["HX-Trigger"] = "showToast"  # Trigger toast
+                return response
+            
+            return redirect("deduct_stock")
         
         # GET - return card partial for HTMX or full page
         form = StockDeductionForm(initial_ingredient=ingredient)
@@ -204,14 +221,23 @@ def deduct_stock(request, item_id=None):
             "item": ingredient, "form": form, "disabled": ingredient.quantity == 0
         })
 
-    # List mode - full page with search, NO pagination
+    # List mode - full page with search & category filter, NO pagination
     search = request.GET.get("q", "").strip()
+    category = request.GET.get("category", "").strip().upper()
     
     qs = Ingredient.objects.order_by("name")
     if search:
         qs = qs.filter(name__icontains=search)
+    if category in Ingredient.Category.values:
+        qs = qs.filter(category=category)
     
-    return render(request, "inventory/deduct.html", {
-        "ingredients": qs,  # ALL ingredients, no pagination
+    context = {
+        "ingredients": qs,
         "search_query": search,
-    })
+        "category_filter": category,
+    }
+
+    if request.htmx:
+        return render(request, "inventory/_deduct_grid.html", context)
+
+    return render(request, "inventory/deduct.html", context)

@@ -35,13 +35,14 @@ Open: http://127.0.0.1:8000/accounts/login/
 
 | Module | Description |
 |--------|-------------|
-| **Kitchen Hub** | Touch-optimized deduction entry (HTMX autocomplete) |
-| **Crew Dashboard** | Responsive ingredient grid with inline deduct forms, HTMX search, scrollable (no pagination), zero-stock disabling |
-| **Owner/Manager Dashboards** | Stats, Executive Summary (structured list), Procurement Radar, Storage Distribution chart, High Demand Products chart |
+| **Split-Screen Authentication** | Responsive enterprise portal (`lg:flex-row` showcase on desktop, touch card on mobile), password toggle, ≥48px touch targets, 16px iOS zoom protection |
+| **Kitchen Hub (Crew Interface)** | Dedicated **2-tab interface** (`Deduct Stock` + `My Transactions`), auto-landing on login, 48px touch targets, quick deduction step pills (`+1`, `+5`, `+10`, `Max`), zero-stock guards |
+| **Owner/Manager Dashboards** | KPI analytics, Executive Summary (structured list), Procurement Radar, dynamic category Storage Distribution doughnut chart, High Demand Products trendline |
 | **Forecasting** | 3-tab UI: Consumption (HTMX risk filter) + Supplier Radar (60s polling) + Stockout Timeline (Chart.js) |
-| **Procurement Radar** | "Active Hunter" — upcoming supplier delivery windows, Refresh + auto-polling on dashboards |
+| **Procurement Radar** | "Active Hunter" — upcoming supplier delivery windows, Refresh + auto-polling on dashboards, instant InboundShipment sync |
 | **PO Manager** | Alerts → PRs → Supplier emails (deterministic templates) |
 | **Reports** | Turnover, waste, variance tracking (SDG 12) |
+| **Design System** | Brand-locked tokens (`#871F09`, `#FE5F10`, `#FED216`), WCAG 2.2 AA kitchen ergonomics (see [`DESIGN_SYSTEM.md`](file:///Users/luispingul/WaxisInventorySystem/DESIGN_SYSTEM.md)) |
 
 ## Forecasting Engine (Zero-AI)
 
@@ -94,15 +95,17 @@ Installed via [vintasoftware/django-ai-plugins](https://github.com/vintasoftware
 
 | Skill | Purpose | Applies To |
 |-------|---------|------------|
+| `ui-ux-pro-max` | Design system tokens, kitchen touch ergonomics (≥48px), Chart.js themes | ✅ Kitchen Hub, Dashboards, Reports |
 | `django-expert` | Models, ORM, views, security, testing, deployment | ✅ All Django work |
 | `django-safe-migration` | Zero-downtime PostgreSQL migrations (concurrent indexes, FK validation, db_default) | ✅ Migrations (supplier FK, etc.) |
 | `django-reviewer` | Code review for Django/DRF anti-patterns | ✅ PR review, refactoring |
 | `django-celery-expert` | Celery task patterns | ⚠️ Not used (management commands) |
 | `cdrf-expert` | DRF class-based view guidance | ⚠️ Not used (HTMX + FBVs) |
 
-**Usage in OpenCode:**
+**Usage in OpenCode / CLI:**
 ```bash
+python3 .opencode/skills/ui-ux-pro-max/scripts/search.py "kitchen touch targets" --domain ux
+python3 .opencode/skills/ui-ux-pro-max/scripts/search.py "inventory trends" --domain chart
 opencode run "Review forecasting/services.py for N+1 queries"
 opencode run "Check migration 0002 for zero-downtime safety"
-opencode run "Best practice for adding a new Ingredient field"
 ```

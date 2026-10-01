@@ -43,10 +43,23 @@ def get_radar_alerts(days_ahead=30, min_confidence=0.1, limit=20):
     alerts = []
     for p in predictions:
         try:
-            days_until = (p.predicted_window_start - today).days
+            if p.predicted_window_start <= today <= p.predicted_window_end:
+                days_until = 0
+                window_status = "Active Now"
+                urgency = "CONTACT_NOW"
+            elif p.predicted_window_start > today:
+                days_until = (p.predicted_window_start - today).days
+                window_status = f"in {days_until}d"
+                urgency = "CONTACT_NOW" if days_until <= 7 else "UPCOMING"
+            else:
+                days_until = 0
+                window_status = "Active"
+                urgency = "CONTACT_NOW"
         except Exception:
             days_until = 0
-        urgency = "CONTACT_NOW" if days_until <= 7 else "UPCOMING"
+            window_status = "Active"
+            urgency = "CONTACT_NOW"
+
         try:
             confidence_pct = int(float(p.confidence_score) * 100)
         except Exception:
@@ -55,6 +68,7 @@ def get_radar_alerts(days_ahead=30, min_confidence=0.1, limit=20):
             {
                 "prediction": p,
                 "days_until_window": days_until,
+                "window_status": window_status,
                 "urgency": urgency,
                 "confidence_pct": confidence_pct,
             }

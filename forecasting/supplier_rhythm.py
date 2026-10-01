@@ -54,8 +54,14 @@ def calculate_supplier_rhythm(supplier, ingredient, min_deliveries=MIN_DELIVERIE
     avg_volume = statistics.mean(volumes[-3:])  # Weight recent 3 deliveries
 
     last_delivery = shipment_list[-1].received_at.date()
-    predicted_center = last_delivery + timedelta(days=round(mean_interval))
+    cycle_days = max(1, round(mean_interval))
     buffer_days = max(2, round(std_interval))
+    today = timezone.now().date()
+
+    # Project recurring cadence forward to active or upcoming window
+    predicted_center = last_delivery + timedelta(days=cycle_days)
+    while predicted_center + timedelta(days=buffer_days) < today:
+        predicted_center += timedelta(days=cycle_days)
 
     # Coefficient of variation -> confidence score
     cv = std_interval / mean_interval if mean_interval > 0 else 1.0
@@ -63,7 +69,7 @@ def calculate_supplier_rhythm(supplier, ingredient, min_deliveries=MIN_DELIVERIE
 
     return {
         "last_delivery_date": last_delivery,
-        "predicted_cycle_days": round(mean_interval),
+        "predicted_cycle_days": cycle_days,
         "predicted_window_start": predicted_center - timedelta(days=buffer_days),
         "predicted_window_end": predicted_center + timedelta(days=buffer_days),
         "estimated_volume": round(avg_volume, 2),

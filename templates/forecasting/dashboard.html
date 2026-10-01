@@ -18,24 +18,51 @@
   </div>
 </div>
 
-<!-- Tab Navigation -->
-<ul class="nav nav-tabs mb-3" role="tablist">
-  <li class="nav-item" role="presentation">
-    <button class="nav-link {% if active_tab|default:'consumption' == 'consumption' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tab-consumption" role="tab">
-      <i class="bi bi-graph-down me-1"></i> Consumption Forecast
-    </button>
-  </li>
-  <li class="nav-item" role="presentation">
-    <button class="nav-link {% if active_tab|default:'consumption' == 'radar' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tab-radar" role="tab">
-      <i class="bi bi-radar me-1"></i> Supplier Radar
-    </button>
-  </li>
-  <li class="nav-item" role="presentation">
-    <button class="nav-link {% if active_tab|default:'consumption' == 'timeline' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tab-timeline" role="tab">
-      <i class="bi bi-bar-chart-line me-1"></i> Stockout Timeline
-    </button>
-  </li>
-</ul>
+<!-- Segmented Tab Navigation -->
+<div class="forecast-tabs-container" role="tablist" id="forecastTabs">
+  <button class="forecast-tab-btn {% if active_tab|default:'consumption' == 'consumption' %}active{% endif %}"
+          id="btn-tab-consumption"
+          data-bs-toggle="tab"
+          data-bs-target="#tab-consumption"
+          data-tab-name="consumption"
+          role="tab"
+          aria-controls="tab-consumption"
+          aria-selected="{% if active_tab|default:'consumption' == 'consumption' %}true{% else %}false{% endif %}">
+    <i class="bi bi-graph-down"></i>
+    <span>Consumption Forecast</span>
+    {% if alerts|length > 0 %}
+      <span class="forecast-tab-badge badge-alert">{{ alerts|length }} AI Alerts</span>
+    {% else %}
+      <span class="forecast-tab-badge">Active</span>
+    {% endif %}
+  </button>
+
+  <button class="forecast-tab-btn {% if active_tab|default:'consumption' == 'radar' %}active{% endif %}"
+          id="btn-tab-radar"
+          data-bs-toggle="tab"
+          data-bs-target="#tab-radar"
+          data-tab-name="radar"
+          role="tab"
+          aria-controls="tab-radar"
+          aria-selected="{% if active_tab|default:'consumption' == 'radar' %}true{% else %}false{% endif %}">
+    <i class="bi bi-radar"></i>
+    <span>Supplier Radar</span>
+    <span class="forecast-tab-badge">Live Rhythm</span>
+  </button>
+
+  <button class="forecast-tab-btn {% if active_tab|default:'consumption' == 'timeline' %}active{% endif %}"
+          id="btn-tab-timeline"
+          data-bs-toggle="tab"
+          data-bs-target="#tab-timeline"
+          data-tab-name="timeline"
+          role="tab"
+          aria-controls="tab-timeline"
+          aria-selected="{% if active_tab|default:'consumption' == 'timeline' %}true{% else %}false{% endif %}">
+    <i class="bi bi-bar-chart-line"></i>
+    <span>Stockout Timeline</span>
+    <span class="forecast-tab-badge">Top 12</span>
+  </button>
+</div>
 
 <div class="tab-content">
   <!-- Consumption Forecast Tab -->
@@ -68,6 +95,7 @@
     if (r === "MEDIUM") return "#FED216";
     return "#198754";
   }
+
   function initTimeline() {
     const canvas = document.getElementById("stockoutTimeline");
     if (!canvas || !window.Chart) return;
@@ -100,11 +128,45 @@
       });
     } catch (e) { console.error("Timeline init failed:", e); }
   }
-  document.addEventListener("shown.bs.tab", (e) => {
-    if (e.target?.getAttribute("data-bs-target") === "#tab-timeline") initTimeline();
+
+  // Handle Tab Switching & URL Sync
+  const tabBtns = document.querySelectorAll("#forecastTabs .forecast-tab-btn");
+  tabBtns.forEach(btn => {
+    btn.addEventListener("shown.bs.tab", (e) => {
+      const tabName = e.target.getAttribute("data-tab-name");
+      if (tabName) {
+        const url = new URL(window.location);
+        url.searchParams.set("tab", tabName);
+        window.history.replaceState({}, "", url);
+      }
+      if (e.target.getAttribute("data-bs-target") === "#tab-timeline") {
+        setTimeout(initTimeline, 50);
+      }
+    });
   });
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initTimeline);
-  else setTimeout(initTimeline, 300);
+
+  // Activate Tab from URL parameter on load
+  function checkUrlTab() {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get("tab");
+    if (tabParam) {
+      const targetBtn = document.querySelector(`#forecastTabs .forecast-tab-btn[data-tab-name="${tabParam}"]`);
+      if (targetBtn && window.bootstrap && window.bootstrap.Tab) {
+        const tabInstance = bootstrap.Tab.getOrCreateInstance(targetBtn);
+        tabInstance.show();
+      }
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      checkUrlTab();
+      initTimeline();
+    });
+  } else {
+    checkUrlTab();
+    setTimeout(initTimeline, 300);
+  }
 })();
 </script>
 {% endblock %}

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Deduct Stock · Waxi's{% endblock %}
+{% block title %}Deduct Stock · INVENTIQ{% endblock %}
 {% block page_title %}Deduct Stock{% endblock %}
 {% block content %}
 <div class="page-heading">
@@ -9,26 +9,107 @@
     </div>
 </div>
 
-<!-- Search Bar -->
-<div class="panel mb-6">
-    <div class="panel-body">
-        <form method="GET" hx-get="{% url 'deduct_stock' %}" hx-target="#deduct-grid-container" hx-swap="innerHTML" hx-trigger="input changed delay:300ms, submit" class="flex gap-3">
-            {% csrf_token %}
-            <div class="flex-1">
-                <label for="search-input" class="sr-only">Search ingredients</label>
-                <input type="search" name="q" id="search-input" value="{{ search_query }}" placeholder="Search ingredients..." class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all" placeholder="Search ingredients...">
-            </div>
-            <button type="submit" class="btn btn-primary whitespace-nowrap">Search</button>
-            {% if search_query %}
-                <a href="{% url 'deduct_stock' %}" class="btn btn-light">Clear</a>
-            {% endif %}
-        </form>
-    </div>
+<!-- Sticky Kitchen Action & Category Filter Bar -->
+<div class="panel mb-6 sticky top-3 z-20 bg-white/95 backdrop-blur-md border border-orange-100/80 shadow-sm rounded-2xl p-4">
+    <form method="GET" 
+          id="deduct-filter-form"
+          hx-get="{% url 'deduct_stock' %}" 
+          hx-target="#deduct-grid-container" 
+          hx-swap="innerHTML" 
+          hx-trigger="input changed delay:250ms, change, submit" 
+          class="flex flex-col lg:flex-row lg:items-center gap-3">
+        {% csrf_token %}
+        
+        <!-- Live Search Input -->
+        <div class="flex-1 relative">
+            <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input type="search" 
+                   name="q" 
+                   id="search-input" 
+                   value="{{ search_query }}" 
+                   placeholder="Search ingredients by name..." 
+                   class="w-full border border-gray-200 rounded-xl pl-11 pr-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all">
+        </div>
+
+        <!-- 1-Tap Category Filter Pills -->
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 flex-shrink-0" role="group" aria-label="Ingredient categories">
+            <input type="hidden" name="category" id="selected-category" value="{{ category_filter|default:'' }}">
+            
+            <button type="button" 
+                    onclick="filterCategory('', this)" 
+                    class="cat-pill-btn px-3.5 py-2 rounded-xl text-xs font-bold transition-all min-h-[38px] flex items-center gap-1.5 whitespace-nowrap {% if not category_filter %}bg-[#871F09] text-white shadow-sm{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}"
+                    data-cat="">
+                <i class="bi bi-grid-fill text-[11px]"></i>
+                <span>All Items</span>
+            </button>
+            <button type="button" 
+                    onclick="filterCategory('DRY', this)" 
+                    class="cat-pill-btn px-3.5 py-2 rounded-xl text-xs font-bold transition-all min-h-[38px] flex items-center gap-1.5 whitespace-nowrap {% if category_filter == 'DRY' %}bg-amber-500 text-white shadow-sm{% else %}bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200/60{% endif %}"
+                    data-cat="DRY">
+                <i class="bi bi-box-seam text-[11px]"></i>
+                <span>Dry Goods</span>
+            </button>
+            <button type="button" 
+                    onclick="filterCategory('CHILLED', this)" 
+                    class="cat-pill-btn px-3.5 py-2 rounded-xl text-xs font-bold transition-all min-h-[38px] flex items-center gap-1.5 whitespace-nowrap {% if category_filter == 'CHILLED' %}bg-orange-500 text-white shadow-sm{% else %}bg-orange-50 text-orange-800 hover:bg-orange-100 border border-orange-200/60{% endif %}"
+                    data-cat="CHILLED">
+                <i class="bi bi-thermometer-half text-[11px]"></i>
+                <span>Chilled</span>
+            </button>
+            <button type="button" 
+                    onclick="filterCategory('FROZEN', this)" 
+                    class="cat-pill-btn px-3.5 py-2 rounded-xl text-xs font-bold transition-all min-h-[38px] flex items-center gap-1.5 whitespace-nowrap {% if category_filter == 'FROZEN' %}bg-red-700 text-white shadow-sm{% else %}bg-red-50 text-red-900 hover:bg-red-100 border border-red-200/60{% endif %}"
+                    data-cat="FROZEN">
+                <i class="bi bi-snow text-[11px]"></i>
+                <span>Frozen</span>
+            </button>
+        </div>
+
+        <button type="submit" class="btn btn-primary whitespace-nowrap hidden sm:inline-flex min-h-[38px] items-center">Search</button>
+        {% if search_query or category_filter %}
+            <a href="{% url 'deduct_stock' %}" class="btn btn-light whitespace-nowrap min-h-[38px] inline-flex items-center gap-1">
+                <i class="bi bi-x-circle"></i>
+                <span>Clear</span>
+            </a>
+        {% endif %}
+    </form>
 </div>
 
-<!-- Grid Container -->
+<!-- Grid Container (Single Clean Target) -->
 <div id="deduct-grid-container">
     {% include "inventory/_deduct_grid.html" with ingredients=ingredients %}
 </div>
+
+<script>
+function filterCategory(cat, btn) {
+    const catInput = document.getElementById('selected-category');
+    if (!catInput) return;
+    
+    catInput.value = cat;
+    
+    // Update active pill styling
+    document.querySelectorAll('.cat-pill-btn').forEach(b => {
+        b.className = 'cat-pill-btn px-3.5 py-2 rounded-xl text-xs font-bold transition-all min-h-[38px] flex items-center gap-1.5 whitespace-nowrap bg-slate-100 text-slate-600 hover:bg-slate-200';
+    });
+    
+    if (btn) {
+        if (cat === 'DRY') {
+            btn.className = 'cat-pill-btn px-3.5 py-2 rounded-xl text-xs font-bold transition-all min-h-[38px] flex items-center gap-1.5 whitespace-nowrap bg-amber-500 text-white shadow-sm';
+        } else if (cat === 'CHILLED') {
+            btn.className = 'cat-pill-btn px-3.5 py-2 rounded-xl text-xs font-bold transition-all min-h-[38px] flex items-center gap-1.5 whitespace-nowrap bg-orange-500 text-white shadow-sm';
+        } else if (cat === 'FROZEN') {
+            btn.className = 'cat-pill-btn px-3.5 py-2 rounded-xl text-xs font-bold transition-all min-h-[38px] flex items-center gap-1.5 whitespace-nowrap bg-red-700 text-white shadow-sm';
+        } else {
+            btn.className = 'cat-pill-btn px-3.5 py-2 rounded-xl text-xs font-bold transition-all min-h-[38px] flex items-center gap-1.5 whitespace-nowrap bg-[#871F09] text-white shadow-sm';
+        }
+    }
+    
+    // Trigger HTMX request
+    const form = document.getElementById('deduct-filter-form');
+    if (form) {
+        form.dispatchEvent(new Event('change'));
+    }
+}
+</script>
 
 {% endblock %}

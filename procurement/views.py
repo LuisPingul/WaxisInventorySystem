@@ -12,8 +12,9 @@ from inventory.models import Ingredient, StockTransaction
 from .forms import ProcurementForm
 from .models import ProcurementRequest
 
+from urllib.parse import quote
 from inventory.models import StockTransaction as InvStockTx
-from .services import generate_po_email
+from .services import generate_po_email, generate_po_viber, clean_phone_for_viber
 
 
 MANAGEMENT = (
@@ -180,6 +181,19 @@ def mark_delivered(request, pk):
         obj.approved_by = obj.approved_by or request.user
         obj.save(update_fields=["status", "delivered_quantity", "actual_delivery_date", "expected_delivery_date", "approved_by", "updated_at"])
 
+        supplier = obj.supplier or getattr(ingredient, "supplier_fk", None)
+        if supplier:
+            from inventory.models import InboundShipment
+            InboundShipment.objects.create(
+                supplier=supplier,
+                ingredient=ingredient,
+                procurement_request=obj,
+                quantity_received=delivered_qty,
+                received_at=timezone.now(),
+                unit_cost=obj.unit_price if obj.unit_price and obj.unit_price > 0 else (ingredient.unit_cost or None),
+                notes=f"Delivered via PR-{obj.pk:04d}",
+            )
+
         log_action(
             request.user,
             "DELIVERED",
@@ -194,6 +208,49 @@ def mark_delivered(request, pk):
 
 @role_required(*MANAGEMENT)
 def po_email_draft(request, pk):
-    obj = get_object_or_404(ProcurementRequest.objects.select_related("ingredient", "supplier", "requested_by"), pk=pk)
+    obj = get_object_or_404(
+        ProcurementRequest.objects.select_related("ingredient", "supplier", "requested_by"),
+        pk=pk,
+    )
+    supplier = obj.supplier or getattr(obj.ingredient, "supplier_fk", None)
+
+    # Handle inline actions from the dispatch view
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "update_phone" and supplier:
+            new_phone = request.POST.get("phone", "").strip()
+            supplier.phone = new_phone
+            supplier.save(update_fields=["phone", "updated_at"])
+            log_action(request.user, "UPDATE", "Suppliers", supplier.pk, f"Updated Viber contact for {supplier.company_name} to {new_phone}")
+            messages.success(request, f"Updated Viber contact for {supplier.company_name} to {new_phone}.")
+            return redirect("procurement_email", pk=pk)
+        elif action == "mark_ordered":
+            if obj.status in [ProcurementRequest.Status.PENDING, ProcurementRequest.Status.APPROVED]:
+                obj.status = ProcurementRequest.Status.ORDERED
+                obj.approved_by = obj.approved_by or request.user
+                obj.save(update_fields=["status", "approved_by", "updated_at"])
+                log_action(request.user, "ORDERED", "Procurement", obj.pk, f"Dispatched via PO Dispatch Hub: {obj.ingredient.name} qty {obj.requested_quantity}")
+                messages.success(request, f"PR-{obj.pk:04d} marked as ORDERED.")
+                return redirect("procurement_email", pk=pk)
+
     subject, body = generate_po_email(obj)
-    return render(request, "procurement/email_draft.html", {"obj": obj, "subject": subject, "body": body})
+    viber_message = generate_po_viber(obj)
+
+    phone = getattr(supplier, "phone", "") if supplier else ""
+    viber_digits = clean_phone_for_viber(phone)
+    viber_chat_url = f"viber://chat?number=%2B{viber_digits}" if viber_digits else ""
+    viber_forward_url = f"viber://forward?text={quote(viber_message)}"
+
+    context = {
+        "obj": obj,
+        "supplier": supplier,
+        "subject": subject,
+        "body": body,
+        "viber_message": viber_message,
+        "supplier_phone": phone,
+        "viber_digits": viber_digits,
+        "viber_chat_url": viber_chat_url,
+        "viber_forward_url": viber_forward_url,
+    }
+    return render(request, "procurement/email_draft.html", context)
+

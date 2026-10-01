@@ -246,6 +246,21 @@ Sources (priority order):
 2. `ProcurementRequest` ORDERED with `expected_delivery_date`
 3. `StockTransaction` ADDED with `ingredient.supplier_fk`
 
+### 6.1 Real-Time Delivery Ingestion
+In addition to batch backfilling, whenever a Purchase Order is marked as delivered in [`procurement/views.py:mark_delivered`](file:///Users/luispingul/WaxisInventorySystem/procurement/views.py), the system automatically creates an `InboundShipment` record in real-time:
+```python
+InboundShipment.objects.create(
+    supplier=obj.supplier_fk,
+    ingredient=ingredient,
+    procurement_request=obj,
+    quantity_received=delivered_qty,
+    received_at=actual_delivery,
+    unit_cost=obj.unit_cost,
+    notes=f"Auto-logged from PR-{obj.pk:04d} delivery",
+)
+```
+This ensures that the Agrilytics delivery interval model continuously learns from everyday kitchen restock operations without requiring manual command execution.
+
 ---
 
 ## 7. Dual-Mode Intelligence

@@ -32,23 +32,18 @@ A touch-optimized tablet interface located in the kitchen.
 * **Function:** Allows staff to quickly search for raw ingredients and input exact numerical deductions as they are consumed during shifts.
 * **Architecture Impact:** Every deduction triggers a POST request to the backend, immediately updating the `Ingredient` table and writing a timestamped record to `StockTransaction` (Activity_Logs).
 
-## Module 6: Crew Dashboard — Deduct Stock Grid
-A responsive, mobile-first ingredient grid replacing the single-form deduction page.
-* **Function:** Displays all ingredients in a responsive card grid (1/2/3/4 columns) with inline deduct forms. Crew can search (300ms debounce), scroll through all items (no pagination), and deduct stock without page reloads via HTMX.
-* **Key Features:**
-  * Responsive grid: `grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4`
-  * Each card: white background, `rounded-2xl`, subtle border, current stock badge
-  * Inline deduct form with quantity input, reason dropdown, submit button
-  * Zero-stock items visually disabled (`opacity-50`, `disabled` attribute)
-  * HTMX-powered: search (300ms debounce), **scrollable list (no pagination)**, form submission all via partial swaps
-  * Subtle toast notification on successful deduction
-  * Zero-stock items disabled (`disabled` attribute + `opacity-50`)
-* **Architecture Impact:** 
-  * Single view (`deduct_stock`) handles both list mode (full page with search) and item mode (HTMX partial card)
-  * `StockDeductionForm` adapts: ingredient field hidden when `item_id` provided
-  * HTMX partial swaps (`hx-swap="outerHTML"`) keep crew on dashboard
-  * Zero-stock items disabled at form + template level
-  * Scrollable container: `h-[calc(100vh-350px)] overflow-y-auto` adapts to viewport
+## Module 6: Crew Operations — Dedicated 2-Tab Kitchen Interface
+A purpose-built, distraction-free interface for kitchen staff, strictly restricted to two primary tabs: **Deduct Stock** and **My Transactions**.
+* **Role Isolation & UX:**
+  * Crew accounts automatically land on `/inventory/deduct/` upon authentication or root `/` navigation.
+  * Sidebar navigation for Crew renders strictly 2 items: **Deduct Stock** and **My Transactions** (with session Logout at bottom). General dashboard and manager inventory tables are role-guarded and hidden.
+* **Kitchen Hub Deduct Grid (`_deduct_grid.html` / `_deduct_card.html`):**
+  * Displays ingredients in a responsive card grid (`grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4`) with live HTMX search (300ms debounce) and continuous scroll.
+  * **Touch Ergonomics (WCAG 2.2 AA):** Minimum 48px touch targets for inputs and submit buttons; base 16px font size preventing iOS Safari viewport auto-zoom; quick-increment step pills (`+1`, `+5`, `+10`, `Max`) allowing touch deduction without a virtual keyboard.
+  * **Zero-Stock Guard:** Depleted items display an explicit `OUT OF STOCK` badge and disable submission inputs.
+  * **Reactive HTMX Swaps:** In-place card replacement on deduction (`hx-swap="outerHTML"`) with instant toast feedback. Form errors (e.g. over-deduction) return HTTP 422 and swap error banners directly into the card.
+* **My Transactions (`templates/inventory/transactions.html`):**
+  * Filtered view showing only deductions and transactions performed by the authenticated crew member, wrapped in a responsive container for tablets and mobile devices.
 
 ## Module 2: Command Dashboard (Admin Interface)
 The central hub for the Operations Manager and Owner.
@@ -154,3 +149,53 @@ The PostgreSQL database is normalized and relies on the following core entities 
 | `backfill_inbound_shipments` | One-time historical data load from PRs + StockTransaction | Manual |
 | `compute_forecasts` | Daily: consumption alerts + supplier rhythms | Cron `0 2 * * *` |
 | `compute_forecasts --rhythm-only` | Standalone rhythm refresh | Optional |
+
+## 8. UI/UX Modernization & Architecture Hardening (2026-09-30)
+
+### 8.1 Design System Integration (`DESIGN_SYSTEM.md`)
+- **Brand Tokens**: Formally standardized Waxi's / SND Foods corporate palette:
+  - Deep Maroon (`#871F09`) — primary identity, dark headers, frozen categories.
+  - Electric Orange (`#FE5F10`) — primary interactive action, focus rings, chilled categories.
+  - Warm Amber (`#FED216`) — secondary accents, warnings, dry goods categories.
+  - Charcoal (`#1E293B`) — high-contrast typography and base surfaces.
+- **Doughnut Category Palette**: Updated Chart.js storage breakdown across Owner and Manager dashboards to dynamically bind brand colors (`Dry Goods` $\rightarrow$ Amber, `Chilled` $\rightarrow$ Orange, `Frozen` $\rightarrow$ Maroon) with a modern 65% cutout.
+- **Skill Adoption**: Installed `ui-ux-pro-max` into `.opencode/skills/ui-ux-pro-max/` to guide future UI component development.
+
+### 8.2 Responsive Split-Screen Login Architecture (`templates/accounts/login.html`)
+- **Dual-Mode Layout**:
+  - **Desktop / Tablet Landscape ($\ge 1024\text{px}$)**: Left-column brand showcase featuring SND Foods / INVENTIQ branding, gradient backdrop (`#3E1006` to `#871F09`), live operational status indicator, and three enterprise feature cards (Kitchen Hub, Dual-Mode AI Forecasting, Active Procurement Radar). Right column contains a spacious authentication form.
+  - **Mobile / Tablet Portrait ($< 1024\text{px}$)**: Gracefully collapses into a centered high-contrast touch card with prominent branding.
+- **Ergonomics & Accessibility**:
+  - Minimum 48px touch targets for username/password fields and sign-in CTA button.
+  - Base input typography set to 16px to prevent iOS Safari auto-zoom behavior on focus.
+  - Interactive password visibility toggle button (`bi-eye` / `bi-eye-slash`) with `aria-label`.
+  - Semantic alert banners: green emerald pill for positive notifications (e.g. logout), amber for warnings, and red shake alert for invalid credentials.
+
+### 8.3 Crew Role Isolation (Strict 2-Tab Navigation)
+- **Navigation Streamlining**: Moved Dashboard and Inventory navigation links inside the non-crew conditional block in `templates/base.html`. The Crew sidebar now displays strictly 2 tabs:
+  1. **Deduct Stock** (`/inventory/deduct/`)
+  2. **My Transactions** (`/inventory/transactions/`)
+- **Automatic Landing & Guards**:
+  - `dashboard.views.home` redirects Crew members directly to `deduct_stock` upon login or accessing root `/`.
+  - Sidebar logo link automatically directs Crew to `deduct_stock`.
+  - `inventory.views.inventory_list` guards general inventory table from Crew, redirecting to `deduct_stock`.
+- **Touch Ergonomics in Kitchen Hub (`_deduct_card.html`)**:
+  - Enforced 48px touch targets for quantity inputs and deduction buttons.
+  - Added quick-increment deduction pills (`+1`, `+5`, `+10`, `Max`) so kitchen staff can log usage without summoning the virtual software keyboard.
+  - Added visual category pills (`Dry Goods`, `Chilled`, `Frozen`) and explicit `OUT OF STOCK` badges for depleted items.
+
+### 8.4 Session Message Leakage Resolution & Logout Purge
+- **Issue**: Lingering stock alerts (e.g., `"Chicken Thigh is now low stock."`) and deduction toasts appeared on the public login page after logging out.
+- **Root Cause**:
+  1. HTMX deduction requests in `inventory/views.py` queued messages into Django's fallback session/cookie storage, but because HTMX swapped only the card partial (`_deduct_card.html`), messages were never consumed in the DOM.
+  2. Upon logging out, Django's default behavior retained unread messages in the request object and saved both the unread notices and `"You have been logged out."` into the login redirect cookie.
+  3. An erroneous `MESSAGE_TAGS = { 25: "error" }` in `config/settings.py` mapped Django `SUCCESS` (25) to `"error"`, rendering even the logout message as a red error alert with a shake animation.
+- **Fixes Applied**:
+  1. `accounts.views.logout_view`: Added `list(messages.get_messages(request))` prior to `logout(request)` to exhaust all queued messages, guaranteeing zero session bleed to the login page.
+  2. `inventory.views.deduct_stock`: Guarded `messages.warning` and `messages.success` to only fire on non-HTMX requests (`if not request.htmx`), using client-side `window.showToast` for HTMX.
+  3. `config/settings.py`: Removed the incorrect `MESSAGE_TAGS = { 25: "error" }` override.
+  4. `templates/accounts/login.html`: Styled messages according to message tag semantics.
+
+### 8.5 Real-Time Agrilytics Rhythm Synchronization
+- **Fix in `procurement/views.py`**: Updated `mark_delivered` to create an `InboundShipment` record immediately when a Purchase Order is marked as delivered, allowing Agrilytics rhythm tracking to calculate delivery intervals in real-time without requiring a batch backfill command.
+- **Validation**: Fixed `deduct_stock` error handling so over-deduction or form errors return HTTP 422 with validation errors swapped directly into the card partial rather than showing false success toasts.

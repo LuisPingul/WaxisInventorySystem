@@ -7,7 +7,7 @@ from accounts.models import Profile
 from inventory.models import Ingredient, StockTransaction
 from procurement.models import ProcurementRequest
 
-from .services import dashboard_context
+from .services import dashboard_context, get_executive_summary_context
 
 
 def generate_executive_summary(context_dict):
@@ -86,6 +86,8 @@ def home(request):
         return owner_dashboard(request)
     if role == Profile.Role.MANAGER:
         return manager_dashboard(request)
+    if role == Profile.Role.CREW:
+        return redirect("deduct_stock")
     return crew_dashboard(request)
 
 
@@ -112,6 +114,7 @@ def _chart_data(distribution):
 @login_required
 def manager_dashboard(request):
     ctx = dashboard_context()
+    executive_summary = get_executive_summary_context(ctx)
     ai_summary = None
     if request.GET.get("ai") == "1":
         snap = {"total": ctx["total"], "low": ctx["low"], "critical": ctx["critical"], "pending": ctx["pending"], "distribution": ctx["distribution"]}
@@ -141,6 +144,7 @@ def manager_dashboard(request):
         "demand_data": demand_data,
         "weekly_movements": ctx["weekly_movements"],
         "ai_summary": ai_summary,
+        "executive_summary": executive_summary,
         "radar_alerts": radar_alerts,
     })
 
@@ -148,7 +152,7 @@ def manager_dashboard(request):
 @login_required
 def owner_dashboard(request):
     ctx = dashboard_context()
-    # Executive summary on demand (?ai=1), same as Manager dashboard
+    executive_summary = get_executive_summary_context(ctx)
     ai_summary = None
     if request.GET.get("ai") == "1":
         snap = {"total": ctx["total"], "low": ctx["low"], "critical": ctx["critical"], "pending": ctx["pending"], "distribution": ctx["distribution"]}
@@ -188,6 +192,7 @@ def owner_dashboard(request):
         "demand_data": demand_data,
         "weekly_movements": ctx["weekly_movements"],
         "ai_summary": ai_summary,
+        "executive_summary": executive_summary,
         "forecast_highlights": forecast_rows,
         "radar_alerts": radar_alerts,
     })
@@ -196,11 +201,13 @@ def owner_dashboard(request):
 @login_required
 def ai_summary_view(request):
     ctx = dashboard_context()
-    snap = {"total": ctx["total"], "low": ctx["low"], "critical": ctx["critical"], "pending": ctx["pending"], "distribution": ctx["distribution"]}
-    summary = generate_executive_summary(snap)
+    summary = get_executive_summary_context(ctx)
     if request.htmx:
-        return render(request, "dashboard/_ai_summary.html", {"ai_summary": summary})
-    messages.info(request, summary)
+        return render(request, "dashboard/_executive_summary.html", {
+            "summary": summary,
+            "executive_summary": summary,
+        })
+    messages.info(request, summary.get("directive", "Executive briefing refreshed."))
     return redirect("dashboard:home")
 
 

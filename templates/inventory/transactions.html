@@ -1,10 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Transactions · Waxi's{% endblock %}
-{% block page_title %}Stock Transactions{% endblock %}
+{% block title %}{% if request.user.profile.role == 'CREW' %}My Transactions{% else %}Stock Transactions{% endif %} · INVENTIQ{% endblock %}
+{% block page_title %}{% if request.user.profile.role == 'CREW' %}My Transactions{% else %}Stock Transactions{% endif %}{% endblock %}
 {% block content %}
-<div class="page-heading"><div><h1>{% if request.user.profile.role == 'CREW' %}My Transactions{% else %}Stock Transactions{% endif %}</h1><p>Trace every inventory movement.</p></div></div>
+<div class="page-heading">
+    <div>
+        <h1>{% if request.user.profile.role == 'CREW' %}My Transactions{% else %}Stock Transactions{% endif %}</h1>
+        <p>{% if request.user.profile.role == 'CREW' %}Trace your stock deductions and kitchen inventory usage.{% else %}Trace every inventory movement across all locations.{% endif %}</p>
+    </div>
+</div>
 <div class="panel">
-<div class="table-responsive">
+<div class="table-responsive table-responsive-wrapper">
 <table class="table align-middle">
 <thead><tr><th>Date</th><th>Ingredient</th><th>Type</th><th>Quantity</th><th>Previous</th><th>Remaining</th><th>User</th><th>Reason</th></tr></thead>
 <tbody>

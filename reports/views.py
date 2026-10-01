@@ -1,221 +1,161 @@
 import csv
-import json
-from datetime import timedelta
 from decimal import Decimal
-
-from django.db.models import Avg, Count, DecimalField, ExpressionWrapper, F, Q, Sum
-from django.db.models.functions import TruncMonth
 from django.http import HttpResponse
 from django.shortcuts import render
-from django.utils import timezone
 
 from accounts.decorators import role_required
 from accounts.models import Profile
 from inventory.models import Ingredient, StockTransaction
 from procurement.models import ProcurementRequest
-from suppliers.models import Supplier
+
+from .services import (
+    resolve_time_window,
+    get_executive_financials,
+    get_spoilage_breakdown,
+    get_velocity_analytics,
+    get_storage_capital_breakdown,
+    get_daily_consumption_trend,
+    get_supplier_performance,
+)
+
+# Both Manager and Owner have full operational and executive access to all inventory reports
+REPORTS_MANAGEMENT = (
+    Profile.Role.DEVELOPER,
+    Profile.Role.OWNER,
+    Profile.Role.MANAGER,
+)
 
 
-@role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER, Profile.Role.MANAGER)
+@role_required(*REPORTS_MANAGEMENT)
 def reports(request):
-    ingredients = Ingredient.objects.select_related("supplier_fk").all()
-    transactions = StockTransaction.objects.select_related("ingredient", "user")
-    procurements = ProcurementRequest.objects.select_related("ingredient", "supplier")
-    suppliers = Supplier.objects.filter(is_active=True)
+    range_key = request.GET.get("range", "30d")
+    active_tab = request.GET.get("tab", "overview")
+    if active_tab not in {"overview", "velocity", "spoilage", "suppliers"}:
+        active_tab = "overview"
 
-    # Aggregations for charts
-    by_category = list(Ingredient.objects.values("category").annotate(count=Count("id")).order_by("category"))
-    by_status = {
-        "GOOD": sum(1 for i in ingredients if i.status == "GOOD"),
-        "LOW": sum(1 for i in ingredients if i.status == "LOW"),
-        "CRITICAL": sum(1 for i in ingredients if i.status == "CRITICAL"),
-        "OUT": sum(1 for i in ingredients if i.status == "OUT"),
-    }
-    since = timezone.now() - timedelta(days=7)
-    daily = (
-        transactions.filter(created_at__gte=since)
-        .extra(select={"day": "date(created_at)"})
-        .values("day")
-        .annotate(count=Count("id"))
-        .order_by("day")
-    )
-    chart_category = json.dumps({"labels": [d["category"] for d in by_category], "counts": [d["count"] for d in by_category], "colors": ["#FE5F10", "#871F09", "#FED216"][:len(by_category)]})
-    chart_status = json.dumps({"labels": list(by_status.keys()), "counts": list(by_status.values()), "colors": ["#198754", "#FED216", "#FE5F10", "#6c757d"]})
+    # Resolve time range
+    range_key, start_date, end_date, range_label = resolve_time_window(range_key)
 
-    # === Executive metrics ===
+    # Core analytics
+    financials = get_executive_financials(start_date, end_date)
+    spoilage = get_spoilage_breakdown(start_date, end_date)
+    velocity = get_velocity_analytics(start_date, end_date)
+    storage = get_storage_capital_breakdown()
+    daily_trend_json = get_daily_consumption_trend(start_date, end_date)
+    supplier_metrics = get_supplier_performance(start_date, end_date)
 
-    # 1. Total inventory value: sum(quantity * unit_cost)
-    total_inventory_value = (
-        Ingredient.objects.aggregate(
-            total=Sum(ExpressionWrapper(F("quantity") * F("unit_cost"), output_field=DecimalField(max_digits=20, decimal_places=2)))
-        )["total"]
-        or Decimal("0.00")
-    )
+    # Ingredients & Recent activity
+    recent_transactions = StockTransaction.objects.select_related("ingredient", "user").order_by("-created_at")[:25]
+    recent_procurements = ProcurementRequest.objects.select_related("ingredient", "supplier").order_by("-created_at")[:25]
 
-    # 2. Monthly expenditure (this month delivered/ordered/approved)
-    now = timezone.now()
-    monthly_qs = ProcurementRequest.objects.filter(
-        created_at__year=now.year, created_at__month=now.month
-    ).exclude(status=ProcurementRequest.Status.REJECTED)
-    # Prefer unit_price if set, else ingredient unit_cost
-    monthly_expenditure = Decimal("0.00")
-    for pr in monthly_qs.select_related("ingredient"):
-        price = pr.unit_price if pr.unit_price and pr.unit_price > 0 else (pr.ingredient.unit_cost or Decimal("0"))
-        monthly_expenditure += (pr.requested_quantity or Decimal("0")) * price
-    # Alternative aggregate fallback if needed: already computed above
+    context = {
+        # Time window
+        "range_key": range_key,
+        "range_label": range_label,
+        "active_tab": active_tab,
 
-    # 3. Spoilage rate (SDG 12) - % of transactions that are Spoilage/Damaged
-    total_tx = transactions.count()
-    if total_tx:
-        spoilage_tx = transactions.filter(
-            Q(transaction_type=StockTransaction.Type.SPOILAGE) | Q(reason__in=[StockTransaction.Reason.SPOILAGE_WASTE, StockTransaction.Reason.DAMAGED])
-        ).count()
-        spoilage_rate = round(spoilage_tx / total_tx * 100, 1)
-    else:
-        spoilage_rate = 0.0
+        # Financials
+        "total_inventory_value": financials["total_inventory_value"],
+        "procurement_spend": financials["procurement_spend"],
+        "procurement_count": financials["procurement_count"],
+        "spoilage_cost": financials["spoilage_cost"],
+        "spoilage_qty": financials["spoilage_qty"],
+        "spoilage_count": financials["spoilage_count"],
+        "spoilage_rate": financials["spoilage_rate"],
+        "total_tx_count": financials["total_tx_count"],
+        "total_ingredients": financials["total_ingredients_count"],
 
-    # 4. Fast movers - Top 5 deducted this month
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    fast_movers_qs = (
-        StockTransaction.objects.filter(
-            transaction_type__in=[StockTransaction.Type.DEDUCTED, StockTransaction.Type.SPOILAGE],
-            created_at__gte=month_start,
-        )
-        .values("ingredient__name", "ingredient__unit")
-        .annotate(total_deducted=Sum("quantity"))
-        .order_by("-total_deducted")[:5]
-    )
-    # Map to template shape {name, unit, total_deducted}
-    fast_movers = [
-        {"name": r["ingredient__name"], "unit": r["ingredient__unit"], "total_deducted": r["total_deducted"]}
-        for r in fast_movers_qs
-    ]
+        # Movement & Velocity
+        "fast_movers": velocity["fast_movers"],
+        "dead_stock": velocity["dead_stock"],
+        "dead_stock_total_value": velocity["dead_stock_total_value"],
+        "dead_stock_count": velocity["dead_stock_count"],
 
-    # 5. Supplier metrics - avg delay days
-    supplier_metrics = []
-    for sup in suppliers:
-        delivered = ProcurementRequest.objects.filter(
-            supplier=sup, status=ProcurementRequest.Status.DELIVERED,
-            expected_delivery_date__isnull=False, actual_delivery_date__isnull=False
-        )
-        if not delivered.exists():
-            # Fallback to legacy expected_date if new field empty
-            delivered = ProcurementRequest.objects.filter(
-                supplier=sup, status=ProcurementRequest.Status.DELIVERED,
-                expected_date__isnull=False, actual_delivery_date__isnull=False
-            )
-            # Map legacy
-            if not delivered.exists():
-                continue
-            # Use expected_date as expected_delivery_date alias
-            avg_delay_days = 0
-            delays = []
-            for pr in delivered:
-                exp = pr.expected_delivery_date or pr.expected_date
-                act = pr.actual_delivery_date
-                if exp and act:
-                    delays.append((act - exp).days)
-            avg_delay = sum(delays) / len(delays) if delays else 0
-        else:
-            delays = [(pr.actual_delivery_date - pr.expected_delivery_date).days for pr in delivered if pr.expected_delivery_date and pr.actual_delivery_date]
-            avg_delay = sum(delays) / len(delays) if delays else 0
+        # Spoilage & SDG 12
+        "spoilage_reasons": spoilage["reasons"],
+        "top_spoiled": spoilage["top_spoiled"],
 
-        supplier_metrics.append({
-            "name": sup.company_name,
-            "actual_lead_time": round(avg_delay, 1),
-            "is_reliable": avg_delay <= 2,  # reliable if avg delay <=2 days
-            "delay_days": avg_delay,
-        })
-    # If no delivered data, show suppliers with lead_time as placeholder
-    if not supplier_metrics and suppliers.exists():
-        for sup in suppliers[:5]:
-            supplier_metrics.append({
-                "name": sup.company_name,
-                "actual_lead_time": sup.lead_time_days,
-                "is_reliable": True,
-                "delay_days": 0,
-            })
+        # Storage & Categories
+        "chart_category": storage["chart_json"],
+        "category_breakdown": storage["categories"],
 
-    return render(request, "reports/dashboard.html", {
-        "ingredients": ingredients,
-        "transactions": transactions.order_by("-created_at")[:100],
-        "procurements": procurements.order_by("-created_at")[:50],
-        "total_ingredients": ingredients.count(),
-        "total_transactions": transactions.count(),
-        "total_procurements": procurements.count(),
-        "by_category": by_category,
-        "by_status": by_status,
-        "chart_category": chart_category,
-        "chart_status": chart_status,
-        "daily": list(daily),
-        # Executive
-        "total_inventory_value": total_inventory_value,
-        "monthly_expenditure": monthly_expenditure,
-        "spoilage_rate": spoilage_rate,
-        "fast_movers": fast_movers,
+        # Daily Trend Chart
+        "daily_trend_json": daily_trend_json,
+
+        # Suppliers
         "supplier_metrics": supplier_metrics,
-    })
+
+        # Recent activities
+        "transactions": recent_transactions,
+        "procurements": recent_procurements,
+    }
+
+    return render(request, "reports/dashboard.html", context)
 
 
-@role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER, Profile.Role.MANAGER)
+@role_required(*REPORTS_MANAGEMENT)
 def reports_export(request):
-    """CSV export for executive report data."""
-    ingredients = Ingredient.objects.all()
-    now = timezone.now()
-    total_inventory_value = (
-        Ingredient.objects.aggregate(
-            total=Sum(ExpressionWrapper(F("quantity") * F("unit_cost"), output_field=DecimalField(max_digits=20, decimal_places=2)))
-        )["total"]
-        or Decimal("0.00")
-    )
-    monthly_qs = ProcurementRequest.objects.filter(
-        created_at__year=now.year, created_at__month=now.month
-    ).exclude(status=ProcurementRequest.Status.REJECTED)
-    monthly_expenditure = Decimal("0.00")
-    for pr in monthly_qs.select_related("ingredient"):
-        price = pr.unit_price if pr.unit_price and pr.unit_price > 0 else (pr.ingredient.unit_cost or Decimal("0"))
-        monthly_expenditure += (pr.requested_quantity or Decimal("0")) * price
+    """
+    Comprehensive CSV export for the selected date range.
+    Accessible to both Manager and Owner.
+    """
+    range_key = request.GET.get("range", "30d")
+    range_key, start_date, end_date, range_label = resolve_time_window(range_key)
 
-    total_tx = StockTransaction.objects.count()
-    spoilage_tx = StockTransaction.objects.filter(
-        Q(transaction_type=StockTransaction.Type.SPOILAGE) | Q(reason__in=[StockTransaction.Reason.SPOILAGE_WASTE, StockTransaction.Reason.DAMAGED])
-    ).count()
-    spoilage_rate = round(spoilage_tx / total_tx * 100, 1) if total_tx else 0
-
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    fast_movers = (
-        StockTransaction.objects.filter(
-            transaction_type__in=[StockTransaction.Type.DEDUCTED, StockTransaction.Type.SPOILAGE],
-            created_at__gte=month_start,
-        )
-        .values("ingredient__name", "ingredient__unit")
-        .annotate(total_deducted=Sum("quantity"))
-        .order_by("-total_deducted")[:5]
-    )
+    financials = get_executive_financials(start_date, end_date)
+    velocity = get_velocity_analytics(start_date, end_date)
+    spoilage = get_spoilage_breakdown(start_date, end_date)
+    suppliers = get_supplier_performance(start_date, end_date)
 
     response = HttpResponse(content_type="text/csv")
-    response["Content-Disposition"] = f'attachment; filename="inventiq_report_{now:%Y%m%d}.csv"'
+    response["Content-Disposition"] = f'attachment; filename="inventiq_report_{range_key}_{end_date:%Y%m%d}.csv"'
 
     writer = csv.writer(response)
-    writer.writerow(["INVENTIQ Executive Report", f"{now:%Y-%m-%d}"])
+    writer.writerow(["INVENTIQ EXECUTIVE INVENTORY REPORT", f"Generated: {end_date:%Y-%m-%d %H:%M}"])
+    writer.writerow(["Time Window", range_label])
     writer.writerow([])
-    writer.writerow(["Total Inventory Value (PHP)", f"{total_inventory_value:.2f}"])
-    writer.writerow(["Monthly Expenditure (PHP)", f"{monthly_expenditure:.2f}"])
-    writer.writerow(["Spoilage & Waste Rate (%)", f"{spoilage_rate}"])
+
+    # Financial Valuation
+    writer.writerow(["1. FINANCIAL VALUATION & BUDGET"])
+    writer.writerow(["Total Current Stock Value (PHP)", f"{financials['total_inventory_value']:.2f}"])
+    writer.writerow(["Procurement Spend (PHP)", f"{financials['procurement_spend']:.2f}"])
+    writer.writerow(["Procurement Orders Count", financials["procurement_count"]])
+    writer.writerow(["Total Waste Loss (PHP)", f"{financials['spoilage_cost']:.2f}"])
+    writer.writerow(["Spoilage & Waste Rate (%)", f"{financials['spoilage_rate']}%"])
     writer.writerow([])
-    writer.writerow(["Top 5 Fast-Movers (This Month)"])
-    writer.writerow(["Ingredient", "Total Deducted", "Unit"])
-    for fm in fast_movers:
-        writer.writerow([fm["ingredient__name"], f"{fm['total_deducted']}", fm["ingredient__unit"]])
+
+    # Fast Movers
+    writer.writerow(["2. TOP FAST-MOVING INGREDIENTS"])
+    writer.writerow(["Ingredient", "Category", "Total Consumed", "Unit", "Deduction Count"])
+    for fm in velocity["fast_movers"]:
+        writer.writerow([fm["name"], fm["category"], f"{fm['total_deducted']:.2f}", fm["unit"], fm["tx_count"]])
     writer.writerow([])
-    writer.writerow(["Supplier Fulfillment Reliability"])
-    writer.writerow(["Supplier", "Avg Delay (days)", "Status"])
-    for sup in Supplier.objects.filter(is_active=True)[:10]:
-        delivered = ProcurementRequest.objects.filter(supplier=sup, status=ProcurementRequest.Status.DELIVERED, expected_delivery_date__isnull=False, actual_delivery_date__isnull=False)
-        if delivered.exists():
-            delays = [(pr.actual_delivery_date - pr.expected_delivery_date).days for pr in delivered if pr.expected_delivery_date and pr.actual_delivery_date]
-            avg = sum(delays) / len(delays) if delays else 0
-        else:
-            avg = 0
-        writer.writerow([sup.company_name, f"{avg:.1f}", "Reliable" if avg <= 2 else "Delayed"])
+
+    # Dead Stock
+    writer.writerow(["3. DEAD / SLOW-MOVING STOCK (Zero movement in 30 days)"])
+    writer.writerow(["Ingredient", "Category", "Current Stock", "Unit Cost (PHP)", "Capital Tied (PHP)", "Assigned Supplier"])
+    for ds in velocity["dead_stock"]:
+        writer.writerow([ds["name"], ds["category"], f"{ds['quantity']} {ds['unit']}", f"{ds['unit_cost']:.2f}", f"{ds['capital_tied']:.2f}", ds["supplier"]])
+    writer.writerow([])
+
+    # Spoilage Root Causes
+    writer.writerow(["4. FOOD SPOILAGE & SHRINKAGE BREAKDOWN (SDG 12)"])
+    writer.writerow(["Reason", "Incidents Count", "Quantity Lost", "Total Cost Loss (PHP)"])
+    for sr in spoilage["reasons"]:
+        writer.writerow([sr["reason"], sr["count"], f"{sr['qty']:.2f}", f"{sr['cost']:.2f}"])
+    writer.writerow([])
+
+    # Supplier Performance
+    writer.writerow(["5. SUPPLIER FULFILLMENT & ON-TIME RELIABILITY"])
+    writer.writerow(["Supplier", "Total Delivered POs", "On-Time Rate (%)", "Avg Delay (Days)", "Total Spend (PHP)", "Reliability Status"])
+    for sm in suppliers:
+        writer.writerow([
+            sm["name"],
+            sm["total_delivered"],
+            f"{sm['on_time_rate']}%",
+            f"{sm['avg_delay']} days",
+            f"{sm['total_spend']:.2f}",
+            sm["status_label"],
+        ])
+
     return response

@@ -1,0 +1,233 @@
+<div id="executive-summary-wrapper" class="exec-summary-panel">
+  <!-- Panel Header -->
+  <div class="exec-header">
+    <div class="exec-header-left">
+      <div class="exec-header-title">
+        <div class="activity-icon">
+          <i class="bi bi-shield-shaded"></i>
+        </div>
+        <h3>Executive Operations Briefing</h3>
+      </div>
+      <div class="exec-header-badges">
+        <span class="badge {{ summary.status_badge_class }} rounded-pill px-2.5 py-1 d-inline-flex align-items-center gap-1 font-semibold" style="font-size: 0.72rem;">
+          <i class="bi {{ summary.status_icon }}"></i> {{ summary.status_label }}
+        </span>
+        <span class="badge rounded-pill px-2.5 py-1 font-monospace fw-semibold" style="font-size: 0.72rem; background: rgba(255, 255, 255, 0.12); color: #fff; border: 1px solid rgba(255, 255, 255, 0.22);">
+          Health Score: <strong class="{% if summary.health_score < 70 %}text-warning{% elif summary.health_score < 85 %}text-warning{% else %}text-success{% endif %}" style="color: #FED216 !important;">{{ summary.health_score }}</strong>/100
+        </span>
+      </div>
+    </div>
+    <div class="exec-header-right">
+      <span class="small d-none d-lg-inline" style="font-size: 0.72rem; color: rgba(255, 255, 255, 0.70);">
+        <i class="bi bi-clock-history me-1"></i>Updated {{ summary.updated_at|date:"h:i A" }}
+      </span>
+      <button type="button"
+              class="btn btn-refresh-briefing"
+              hx-get="{% url 'dashboard:ai_summary' %}"
+              hx-target="#executive-summary-wrapper"
+              hx-swap="outerHTML">
+        <i class="bi bi-arrow-clockwise me-1"></i>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Panel Body -->
+  <div class="exec-body">
+    <!-- 3-Pillar Operational Bento Cards -->
+    <div class="exec-bento-grid">
+      <!-- Pillar 1: Critical Shortages -->
+      <div class="exec-card exec-card-stock">
+        <div class="exec-card-header">
+          <span class="exec-card-title">Stock Depletion Risk</span>
+          <span class="badge bg-danger-subtle text-danger rounded-pill px-2 py-0.5 fw-bold" style="font-size: 0.7rem;">
+            {{ summary.critical_count }} Critical · {{ summary.low_count }} Low
+          </span>
+        </div>
+        <div class="exec-card-metric">
+          {% if summary.critical_count > 0 %}
+            {{ summary.critical_count }} Depleted Items
+          {% elif summary.low_count > 0 %}
+            {{ summary.low_count }} Low Items
+          {% else %}
+            Stock Fully Healthy
+          {% endif %}
+        </div>
+        <div class="exec-card-desc">
+          Immediate replenishment required to maintain kitchen prep lines.
+        </div>
+        <!-- Depleted & Low Badges -->
+        <div class="exec-chip-list">
+          {% if summary.critical_items %}
+            {% for item in summary.critical_items %}
+              <a href="{% url 'inventory' %}?q={{ item.name|urlencode }}"
+                 class="exec-chip bg-danger-subtle text-danger border border-danger-subtle"
+                 title="{{ item.name }} (Current: {{ item.quantity }} {{ item.unit }})">
+                <i class="bi bi-exclamation-circle flex-shrink-0"></i>
+                <span class="text-truncate">{{ item.name }} ({{ item.quantity }} {{ item.unit }})</span>
+              </a>
+            {% endfor %}
+          {% elif summary.low_items %}
+            {% for item in summary.low_items %}
+              <a href="{% url 'inventory' %}?q={{ item.name|urlencode }}"
+                 class="exec-chip bg-warning-subtle text-dark border border-warning-subtle"
+                 title="{{ item.name }} (Current: {{ item.quantity }} {{ item.unit }})">
+                <i class="bi bi-clock-history flex-shrink-0"></i>
+                <span class="text-truncate">{{ item.name }} ({{ item.quantity }} {{ item.unit }})</span>
+              </a>
+            {% endfor %}
+          {% else %}
+            <div class="text-success small d-flex align-items-center gap-1" style="font-size: 0.78rem;">
+              <i class="bi bi-check-circle-fill"></i> All items above safety thresholds
+            </div>
+          {% endif %}
+        </div>
+        <div class="exec-card-footer">
+          <a href="{% url 'inventory' %}?status=CRITICAL" class="exec-card-link text-danger">
+            <span>View All Stock Risks</span>
+            <i class="bi bi-arrow-right"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- Pillar 2: Supply Chain Pipeline -->
+      <div class="exec-card exec-card-pipeline">
+        <div class="exec-card-header">
+          <span class="exec-card-title">Supply Chain Pipeline</span>
+          <span class="badge bg-warning-subtle text-dark rounded-pill px-2 py-0.5 fw-bold" style="font-size: 0.7rem;">
+            {{ summary.pending_count }} Pending PRs
+          </span>
+        </div>
+        <div class="exec-card-metric">
+          {% if summary.pending_count > 0 %}
+            {{ summary.pending_count }} Awaiting Sign-Off
+          {% else %}
+            Queue Cleared
+          {% endif %}
+        </div>
+        <div class="exec-card-desc">
+          {% if summary.high_risk_prs > 0 %}
+            <span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>{{ summary.high_risk_prs }} High-Priority PRs</span> create bottleneck risk.
+          {% else %}
+            Procurement requests progressing through normal ordering cycle.
+          {% endif %}
+        </div>
+        <div class="exec-chip-list">
+          <div class="d-flex align-items-center gap-3 text-muted small" style="font-size: 0.78rem;">
+            <div>
+              <span class="d-block text-dark fw-bold fs-6">{{ summary.ordered_count }}</span>
+              <span>POs in transit</span>
+            </div>
+            <div class="border-start ps-3">
+              <span class="d-block text-dark fw-bold fs-6">{{ summary.pending_count }}</span>
+              <span>Needs approval</span>
+            </div>
+          </div>
+        </div>
+        <div class="exec-card-footer">
+          <a href="{% url 'procurement' %}?status=PENDING" class="exec-card-link text-warning-emphasis">
+            <span>Review Pending PRs ({{ summary.pending_count }})</span>
+            <i class="bi bi-arrow-right"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- Pillar 3: Storage & Cold-Chain -->
+      <div class="exec-card exec-card-storage">
+        <div class="exec-card-header">
+          <span class="exec-card-title">Storage & Cold-Chain</span>
+          <span class="badge bg-info-subtle text-info-emphasis rounded-pill px-2 py-0.5 fw-bold" style="font-size: 0.7rem;">
+            {{ summary.perishable_count }} Perishables
+          </span>
+        </div>
+        <div class="exec-card-metric">
+          {{ summary.perishable_count }} Temp-Sensitive
+        </div>
+        <div class="exec-card-desc">
+          Chilled & Frozen items require constant cold-chain monitoring vs {{ summary.dry_count }} Dry goods.
+        </div>
+        <div class="exec-chip-list">
+          {% for dist in summary.distribution %}
+            <span class="badge bg-light text-dark border px-2 py-1 rounded" style="font-size: 0.72rem;">
+              {{ dist.category }}: <strong class="ms-0.5">{{ dist.count }}</strong>
+            </span>
+          {% endfor %}
+        </div>
+        <div class="exec-card-footer">
+          <a href="javascript:void(0);" onclick="const target = document.getElementById('storageChartOwner') || document.getElementById('storageChartManager') || document.getElementById('storage-distribution'); if (target) target.scrollIntoView({behavior: 'smooth'});" class="exec-card-link text-info-emphasis">
+            <span>Inspect Storage Distribution</span>
+            <i class="bi bi-arrow-right"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prescriptive Strategic Directive Banner -->
+    <div class="exec-directive-banner">
+      <div class="exec-directive-content">
+        <div class="exec-directive-icon">
+          <i class="bi bi-lightning-charge-fill"></i>
+        </div>
+        <div>
+          <div class="exec-directive-label">
+            Strategic Executive Directive
+          </div>
+          <p class="exec-directive-text">
+            {{ summary.directive }}
+          </p>
+        </div>
+      </div>
+      <div class="exec-directive-actions">
+        <a href="{% url 'procurement' %}?status=PENDING" class="btn btn-primary">
+          <i class="bi bi-check2-circle"></i>
+          <span>Review Pending PRs</span>
+        </a>
+        <a href="{% url 'inventory' %}" class="btn btn-replenish">
+          <i class="bi bi-box-seam"></i>
+          <span>Stock Replenishment</span>
+        </a>
+        <button type="button"
+                class="btn btn-copy-viber"
+                onclick="copyExecutiveBriefing(this, '{{ summary.briefing_text|escapejs }}')">
+          <i class="bi bi-chat-dots-fill"></i>
+          <span>Copy for Viber</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  if (typeof copyExecutiveBriefing === 'undefined') {
+    window.copyExecutiveBriefing = function(btn, briefingText) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(briefingText).then(function() {
+          if (window.showToast) {
+            window.showToast("Executive briefing copied to clipboard! Ready to paste into Viber.", "success");
+          } else {
+            alert("Executive briefing copied to clipboard!");
+          }
+        }).catch(function() {
+          copyFallback(briefingText);
+        });
+      } else {
+        copyFallback(briefingText);
+      }
+    };
+    function copyFallback(text) {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      if (window.showToast) {
+        window.showToast("Executive briefing copied to clipboard!", "success");
+      } else {
+        alert("Executive briefing copied to clipboard!");
+      }
+    }
+  }
+</script>

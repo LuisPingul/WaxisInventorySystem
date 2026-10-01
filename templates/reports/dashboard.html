@@ -1,110 +1,701 @@
 {% extends "base.html" %}
-{% block title %}Reports · Waxi's{% endblock %}
-{% block page_title %}Reports & Insights{% endblock %}
-{% block extra_head %}
-<script src="https://cdn.tailwindcss.com"></script>
-{% endblock %}
+{% load static %}
+
+{% block title %}Reports & Insights · INVENTIQ{% endblock %}
+{% block page_title %}Reports & Analytics{% endblock %}
+
 {% block content %}
-<div class="page-heading"><div><h1>Reports</h1><p>Inventory, stock movement, procurement, and consumption overview.</p></div><div class="d-flex gap-2"><a href="{% url 'reports_export' %}" class="btn btn-outline-dark"><i class="bi bi-download me-1"></i>Export CSV</a><button class="btn btn-outline-dark" onclick="window.print()"><i class="bi bi-printer me-2"></i>Print Report</button></div></div>
+<div class="dispatch-container py-2">
 
-<!-- Executive Financial & SDG 12 Metrics -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="bg-white p-6 rounded-xl border border-red-100 shadow-sm">
-        <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Total Inventory Value</p>
-        <h3 class="text-3xl font-bold text-red-900 mt-2">₱ {{ total_inventory_value|floatformat:2 }}</h3>
-        <p class="text-xs text-gray-400 mt-1">Capital currently tied up in stockroom</p>
+  <!-- PAGE HEADER & ACTION CONTROLS -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <h1 class="h3 fw-bold text-slate-900 mb-1">Reports & Insights</h1>
+      <p class="text-muted small mb-0">
+        Comprehensive inventory valuation, consumption velocity, waste tracking (SDG 12), and vendor fulfillment.
+      </p>
     </div>
-    <div class="bg-white p-6 rounded-xl border border-red-100 shadow-sm">
-        <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Procurement (This Month)</p>
-        <h3 class="text-3xl font-bold text-red-900 mt-2">₱ {{ monthly_expenditure|floatformat:2 }}</h3>
-    </div>
-    <div class="bg-white p-6 rounded-xl border border-orange-200 shadow-sm bg-orange-50/30">
-        <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Spoilage & Waste (SDG 12)</p>
-        <h3 class="text-3xl font-bold text-orange-600 mt-2">{{ spoilage_rate }}%</h3>
-        <p class="text-xs text-gray-500 mt-1">Total items deducted due to expiration/damage</p>
-    </div>
-</div>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-    <div class="bg-white p-6 rounded-xl border border-red-100 shadow-sm">
-        <h4 class="text-lg font-bold text-red-900 mb-4">Top 5 Fast-Movers</h4>
-        <ul class="space-y-3">
-            {% for item in fast_movers %}
-            <li class="flex justify-between items-center text-sm border-b border-gray-50 pb-2">
-                <span class="font-medium text-gray-800">{{ item.name }}</span>
-                <span class="text-gray-500">{{ item.total_deducted }} {{ item.unit }}/month</span>
-            </li>
-            {% empty %}
-            <li class="text-sm text-gray-400">No data available.</li>
-            {% endfor %}
-        </ul>
+    <div class="d-flex align-items-center gap-2">
+      <a href="{% url 'reports_export' %}?range={{ range_key }}" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1 shadow-sm">
+        <i class="bi bi-file-earmark-spreadsheet"></i>
+        <span>Export CSV</span>
+      </a>
+      <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1 shadow-sm" onclick="window.print()">
+        <i class="bi bi-printer"></i>
+        <span>Print Report</span>
+      </button>
     </div>
-    <div class="bg-white p-6 rounded-xl border border-red-100 shadow-sm flex flex-col">
-        <h4 class="text-lg font-bold text-red-900 mb-4">Supplier Fulfillment Reliability</h4>
-        <table class="w-full text-sm text-left">
-            <thead class="text-xs text-gray-500 uppercase bg-gray-50">
-                <tr>
-                    <th class="py-2 px-3">Supplier</th>
-                    <th class="py-2 px-3">Avg Delay</th>
-                    <th class="py-2 px-3">Status</th>
-                </tr>
+  </div>
+
+  <!-- UNIVERSAL TIME WINDOW SELECTOR TOOLBAR -->
+  <div class="panel p-3 mb-4 bg-white shadow-sm">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div class="d-flex align-items-center flex-wrap gap-2">
+        <span class="text-muted small fw-semibold me-2 d-none d-md-inline">
+          <i class="bi bi-calendar3 me-1"></i> Time Range:
+        </span>
+        <a href="?range=30d{% if active_tab %}&tab={{ active_tab }}{% endif %}" class="btn btn-sm {% if range_key == '30d' %}btn-primary text-white{% else %}btn-light border{% endif %}">
+          Last 30 Days (Rolling)
+        </a>
+        <a href="?range=this_month{% if active_tab %}&tab={{ active_tab }}{% endif %}" class="btn btn-sm {% if range_key == 'this_month' %}btn-primary text-white{% else %}btn-light border{% endif %}">
+          This Month
+        </a>
+        <a href="?range=last_month{% if active_tab %}&tab={{ active_tab }}{% endif %}" class="btn btn-sm {% if range_key == 'last_month' %}btn-primary text-white{% else %}btn-light border{% endif %}">
+          Last Month
+        </a>
+        <a href="?range=7d{% if active_tab %}&tab={{ active_tab }}{% endif %}" class="btn btn-sm {% if range_key == '7d' %}btn-primary text-white{% else %}btn-light border{% endif %}">
+          Last 7 Days
+        </a>
+        <a href="?range=all{% if active_tab %}&tab={{ active_tab }}{% endif %}" class="btn btn-sm {% if range_key == 'all' %}btn-primary text-white{% else %}btn-light border{% endif %}">
+          All Time
+        </a>
+      </div>
+
+      <div class="text-end">
+        <span class="badge bg-light text-dark border px-3 py-2" style="font-size: 12px;">
+          <i class="bi bi-clock-history me-1 text-primary"></i>
+          Active Filter: <strong>{{ range_label }}</strong>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXECUTIVE FINANCIAL & OPERATIONAL KPI CARDS -->
+  <div class="row g-3 mb-4">
+    <!-- 1. Total Inventory Valuation -->
+    <div class="col-md-6 col-xl-3">
+      <div class="panel p-3 h-100 bg-white border-start border-4 border-primary">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <span class="text-muted text-uppercase fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">Total Stock Valuation</span>
+            <h3 class="h4 fw-bold mt-1 mb-0" style="color: var(--brand-maroon);">
+              ₱ {{ total_inventory_value|floatformat:2 }}
+            </h3>
+          </div>
+          <div class="p-2 rounded bg-light text-primary">
+            <i class="bi bi-wallet2 fs-5"></i>
+          </div>
+        </div>
+        <p class="text-muted small mt-2 mb-0" style="font-size: 11px;">
+          Working capital tied up in stockroom across <strong>{{ total_ingredients }}</strong> items.
+        </p>
+      </div>
+    </div>
+
+    <!-- 2. Procurement Spend -->
+    <div class="col-md-6 col-xl-3">
+      <div class="panel p-3 h-100 bg-white border-start border-4 border-warning">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <span class="text-muted text-uppercase fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">Procurement Spend</span>
+            <h3 class="h4 fw-bold mt-1 mb-0 text-dark">
+              ₱ {{ procurement_spend|floatformat:2 }}
+            </h3>
+          </div>
+          <div class="p-2 rounded bg-light text-warning">
+            <i class="bi bi-cart-check fs-5"></i>
+          </div>
+        </div>
+        <p class="text-muted small mt-2 mb-0" style="font-size: 11px;">
+          <strong>{{ procurement_count }}</strong> purchase order requests during {{ range_label }}.
+        </p>
+      </div>
+    </div>
+
+    <!-- 3. Food Spoilage & Loss (SDG 12) -->
+    <div class="col-md-6 col-xl-3">
+      <div class="panel p-3 h-100 bg-white border-start border-4 border-danger">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <span class="text-muted text-uppercase fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">Food Spoilage (SDG 12)</span>
+            <div class="d-flex align-items-baseline gap-2 mt-1">
+              <h3 class="h4 fw-bold mb-0 text-danger">₱ {{ spoilage_cost|floatformat:2 }}</h3>
+              <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 11px;">
+                {{ spoilage_rate }}%
+              </span>
+            </div>
+          </div>
+          <div class="p-2 rounded bg-light text-danger">
+            <i class="bi bi-recycle fs-5"></i>
+          </div>
+        </div>
+        <p class="text-muted small mt-2 mb-0" style="font-size: 11px;">
+          <strong>{{ spoilage_count }}</strong> waste incidents (damaged, expired, handling loss).
+        </p>
+      </div>
+    </div>
+
+    <!-- 4. Dead / Slow Stock Capital -->
+    <div class="col-md-6 col-xl-3">
+      <div class="panel p-3 h-100 bg-white border-start border-4 border-secondary">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <span class="text-muted text-uppercase fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">Slow / Dead Stock</span>
+            <h3 class="h4 fw-bold mt-1 mb-0 text-secondary">
+              ₱ {{ dead_stock_total_value|floatformat:2 }}
+            </h3>
+          </div>
+          <div class="p-2 rounded bg-light text-secondary">
+            <i class="bi bi-hourglass-split fs-5"></i>
+          </div>
+        </div>
+        <p class="text-muted small mt-2 mb-0" style="font-size: 11px;">
+          <strong>{{ dead_stock_count }}</strong> ingredients with 0 usage in last 30 days.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTEGRATED SECTION TABS CONTAINER -->
+  <div class="panel overflow-hidden shadow-sm mb-4">
+
+    <!-- SECTION TABS HEADER -->
+    <div class="panel-tabs-bar">
+      <ul class="nav nav-tabs section-tabs" id="reportsTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link tab-email {% if active_tab == 'overview' %}active{% endif %}" id="tab-overview-btn" data-bs-toggle="tab" data-bs-target="#tab-overview-pane" type="button" role="tab">
+            <i class="bi bi-pie-chart-fill me-1"></i>
+            <span>Overview & Valuation</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link tab-email {% if active_tab == 'velocity' %}active{% endif %}" id="tab-velocity-btn" data-bs-toggle="tab" data-bs-target="#tab-velocity-pane" type="button" role="tab">
+            <i class="bi bi-lightning-charge-fill me-1 text-warning"></i>
+            <span>Consumption & Velocity</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link tab-email {% if active_tab == 'spoilage' %}active{% endif %}" id="tab-spoilage-btn" data-bs-toggle="tab" data-bs-target="#tab-spoilage-pane" type="button" role="tab">
+            <i class="bi bi-recycle me-1 text-danger"></i>
+            <span>Waste & Shrinkage (SDG 12)</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link tab-viber {% if active_tab == 'suppliers' %}active{% endif %}" id="tab-suppliers-btn" data-bs-toggle="tab" data-bs-target="#tab-suppliers-pane" type="button" role="tab">
+            <i class="bi bi-truck me-1 text-purple-600"></i>
+            <span>Supplier Performance</span>
+          </button>
+        </li>
+      </ul>
+    </div>
+
+    <!-- TAB CONTENT PANES -->
+    <div class="tab-content p-4" id="reportsTabsContent">
+
+      <!-- ==========================================================
+           TAB 1: OVERVIEW & CAPITAL VALUATION
+           ========================================================== -->
+      <div class="tab-pane fade {% if active_tab == 'overview' %}show active{% endif %}" id="tab-overview-pane" role="tabpanel">
+        
+        <div class="row g-4 mb-4">
+          <!-- Capital by Storage Category (Doughnut) -->
+          <div class="col-lg-5">
+            <div class="p-3 border rounded-3 bg-light h-100">
+              <h5 class="h6 fw-bold mb-1 text-slate-800">Capital Allocation by Storage Category</h5>
+              <p class="text-muted small mb-3">Working capital distribution across storage zones.</p>
+
+              <div style="position: relative; height: 240px;" class="mb-3">
+                <canvas id="categoryCapitalChart"></canvas>
+              </div>
+
+              <div class="table-responsive">
+                <table class="table table-sm text-sm mb-0">
+                  <thead>
+                    <tr class="text-muted" style="font-size: 11px;">
+                      <th>Zone</th>
+                      <th class="text-center">Items</th>
+                      <th class="text-end">Capital (PHP)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for cat in category_breakdown %}
+                    <tr>
+                      <td class="fw-semibold">
+                        <span class="d-inline-block rounded-circle me-1" style="width: 8px; height: 8px; background-color: {{ cat.color }};"></span>
+                        {{ cat.category }}
+                      </td>
+                      <td class="text-center text-muted">{{ cat.count }}</td>
+                      <td class="text-end fw-bold">₱ {{ cat.capital|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Daily Movement Trend (Line/Bar) -->
+          <div class="col-lg-7">
+            <div class="p-3 border rounded-3 bg-light h-100">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <h5 class="h6 fw-bold text-slate-800 mb-0">Stock Usage & Waste Trend</h5>
+                <span class="badge bg-light text-muted border">Daily Volume</span>
+              </div>
+              <p class="text-muted small mb-3">Daily deductions vs waste occurrences during active timeframe.</p>
+
+              <div style="position: relative; height: 280px;">
+                <canvas id="dailyTrendChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Stock & Procurement Activities Split -->
+        <div class="row g-4">
+          <div class="col-lg-6">
+            <div class="border rounded-3 p-3 bg-white">
+              <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-clock-history me-1 text-primary"></i> Recent Stock Transactions</h6>
+                <a href="{% url 'transactions' %}" class="small text-decoration-none">View All</a>
+              </div>
+              <div style="max-height: 280px; overflow-y: auto;">
+                {% for tx in transactions %}
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom text-sm" style="font-size: 12px;">
+                  <div>
+                    <strong>{{ tx.ingredient.name }}</strong>
+                    <div class="text-muted" style="font-size: 11px;">{{ tx.get_transaction_type_display }} ({{ tx.get_reason_display|default:"Routine" }})</div>
+                  </div>
+                  <div class="text-end">
+                    <span class="fw-bold {% if tx.transaction_type == 'ADDED' %}text-success{% elif tx.transaction_type == 'SPOILAGE' %}text-danger{% else %}text-dark{% endif %}">
+                      {% if tx.transaction_type == 'ADDED' %}+{% else %}-{% endif %}{{ tx.quantity }} {{ tx.ingredient.unit }}
+                    </span>
+                    <div class="text-muted" style="font-size: 10px;">{{ tx.created_at|date:"M d, H:i" }}</div>
+                  </div>
+                </div>
+                {% empty %}
+                <div class="text-muted small text-center py-4">No recent transactions recorded.</div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-6">
+            <div class="border rounded-3 p-3 bg-white">
+              <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-cart-check me-1 text-success"></i> Recent Procurement Requests</h6>
+                <a href="{% url 'procurement' %}" class="small text-decoration-none">View All</a>
+              </div>
+              <div style="max-height: 280px; overflow-y: auto;">
+                {% for pr in procurements %}
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom text-sm" style="font-size: 12px;">
+                  <div>
+                    <strong>PR-{{ pr.pk|stringformat:"04d" }}</strong> · {{ pr.ingredient.name }}
+                    <div class="text-muted" style="font-size: 11px;">
+                      {{ pr.supplier.company_name|default:"Assigned Vendor" }} · {{ pr.requested_quantity }} {{ pr.ingredient.unit }}
+                    </div>
+                  </div>
+                  <div class="text-end">
+                    <span class="status-badge status-{{ pr.status|lower }}">{{ pr.get_status_display }}</span>
+                    <div class="text-muted" style="font-size: 10px;">{{ pr.created_at|date:"M d, Y" }}</div>
+                  </div>
+                </div>
+                {% empty %}
+                <div class="text-muted small text-center py-4">No procurement requests recorded.</div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ==========================================================
+           TAB 2: CONSUMPTION VELOCITY (FAST MOVERS & DEAD STOCK)
+           ========================================================== -->
+      <div class="tab-pane fade {% if active_tab == 'velocity' %}show active{% endif %}" id="tab-velocity-pane" role="tabpanel">
+        
+        <div class="row g-4">
+          <!-- Top 5 Fast Movers -->
+          <div class="col-lg-6">
+            <div class="p-4 border rounded-3 bg-white h-100 shadow-sm">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="h6 fw-bold mb-0 text-slate-900">
+                  <i class="bi bi-lightning-charge-fill text-warning me-1"></i> Top Fast-Moving Ingredients
+                </h5>
+                <span class="badge bg-warning-subtle text-warning border border-warning-subtle" style="font-size: 11px;">
+                  {{ range_label }}
+                </span>
+              </div>
+              <p class="text-muted small mb-4">
+                Core ingredients with highest consumption velocity. Used to guide prep batches and par levels.
+              </p>
+
+              <div class="space-y-3">
+                {% for item in fast_movers %}
+                <div class="p-3 border rounded-3 bg-light mb-2">
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <div>
+                      <span class="fw-bold text-dark">{{ forloop.counter }}. {{ item.name }}</span>
+                      <span class="badge bg-white text-muted border ms-2" style="font-size: 10px;">{{ item.category }}</span>
+                    </div>
+                    <div class="fw-bold fs-6 text-primary">
+                      {{ item.total_deducted|floatformat:2 }} <span class="fs-6 text-muted">{{ item.unit }}</span>
+                    </div>
+                  </div>
+                  <div class="text-muted" style="font-size: 11px;">
+                    Deducted across <strong>{{ item.tx_count }}</strong> kitchen transaction(s)
+                  </div>
+                </div>
+                {% empty %}
+                <div class="p-4 text-center text-muted bg-light rounded">
+                  No consumption transactions found in this time range.
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <!-- Dead / Slow-Moving Stock -->
+          <div class="col-lg-6">
+            <div class="p-4 border rounded-3 bg-white h-100 shadow-sm">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="h6 fw-bold mb-0 text-slate-900">
+                  <i class="bi bi-hourglass-split text-secondary me-1"></i> Dead / Slow-Moving Stock Alert
+                </h5>
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style="font-size: 11px;">
+                  0 usage in 30 Days
+                </span>
+              </div>
+              <p class="text-muted small mb-3">
+                Ingredients with capital tied up and zero kitchen usage in the past 30 days. Recommend menu features to prevent expiry.
+              </p>
+
+              <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
+                <table class="table table-sm align-middle mb-0" style="font-size: 12px;">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Ingredient</th>
+                      <th>Category</th>
+                      <th>In Stock</th>
+                      <th class="text-end">Capital Tied</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for ds in dead_stock %}
+                    <tr>
+                      <td class="fw-semibold text-dark">{{ ds.name }}</td>
+                      <td><span class="badge bg-light text-muted border">{{ ds.category }}</span></td>
+                      <td>{{ ds.quantity }} {{ ds.unit }}</td>
+                      <td class="text-end fw-bold text-danger">₱ {{ ds.capital_tied|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                      <td colspan="4" class="text-center text-muted py-4">
+                        All ingredients have active turnover. No dead stock detected!
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ==========================================================
+           TAB 3: WASTE & SHRINKAGE (SDG 12 TARGET)
+           ========================================================== -->
+      <div class="tab-pane fade {% if active_tab == 'spoilage' %}show active{% endif %}" id="tab-spoilage-pane" role="tabpanel">
+        
+        <div class="row g-4 mb-4">
+          <!-- Spoilage Reasons Breakdown -->
+          <div class="col-lg-6">
+            <div class="p-4 border rounded-3 bg-white h-100 shadow-sm">
+              <h5 class="h6 fw-bold mb-1 text-slate-900">
+                <i class="bi bi-shield-exclamation text-danger me-1"></i> Waste Loss by Root Cause
+              </h5>
+              <p class="text-muted small mb-3">Categorization of food waste for kitchen compliance and SDG 12 targets.</p>
+
+              <div class="space-y-3">
+                {% for r in spoilage_reasons %}
+                <div class="p-3 border rounded-3 bg-light mb-2">
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="fw-bold text-dark">{{ r.reason }}</span>
+                    <span class="fw-bold text-danger fs-6">₱ {{ r.cost|floatformat:2 }}</span>
+                  </div>
+                  <div class="d-flex justify-content-between text-muted small" style="font-size: 11px;">
+                    <span>{{ r.count }} incident(s) logged</span>
+                    <span>Total Lost: {{ r.qty|floatformat:2 }} units</span>
+                  </div>
+                </div>
+                {% empty %}
+                <div class="text-muted text-center py-4">No waste incidents recorded in this timeframe.</div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <!-- Top Spoiled Ingredients -->
+          <div class="col-lg-6">
+            <div class="p-4 border rounded-3 bg-white h-100 shadow-sm">
+              <h5 class="h6 fw-bold mb-1 text-slate-900">
+                <i class="bi bi-trash3 text-danger me-1"></i> Highest Waste Ingredients (Peso Impact)
+              </h5>
+              <p class="text-muted small mb-3">Items generating the largest financial shrinkage in the kitchen.</p>
+
+              <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0" style="font-size: 12px;">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Ingredient</th>
+                      <th>Category</th>
+                      <th>Qty Lost</th>
+                      <th class="text-end">Cost Loss (PHP)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for item in top_spoiled %}
+                    <tr>
+                      <td class="fw-semibold text-dark">{{ item.name }}</td>
+                      <td><span class="badge bg-light text-muted border">{{ item.category }}</span></td>
+                      <td>{{ item.qty|floatformat:2 }} {{ item.unit }}</td>
+                      <td class="text-end fw-bold text-danger">₱ {{ item.cost|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                      <td colspan="4" class="text-center text-muted py-4">No ingredient waste recorded.</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SDG 12 Mitigation Recommendation Banner -->
+        <div class="p-3 rounded-3 border" style="background-color: #FEF2F2; border-color: #FECACA;">
+          <div class="d-flex align-items-start gap-3">
+            <div class="p-2 bg-danger text-white rounded-circle flex-shrink-0">
+              <i class="bi bi-lightbulb fs-6"></i>
+            </div>
+            <div>
+              <h6 class="fw-bold mb-1 text-danger">SDG 12 Responsible Consumption Recommendations</h6>
+              <p class="small text-muted mb-0">
+                Regularly monitor fast-spoil ingredients like <em>Fresh Produce</em> and <em>Chilled Meats</em>. Consider adjusting minimum procurement order sizes and prep schedules to reduce handling damage.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ==========================================================
+           TAB 4: SUPPLIER FULFILLMENT & PERFORMANCE
+           ========================================================== -->
+      <div class="tab-pane fade {% if active_tab == 'suppliers' %}show active{% endif %}" id="tab-suppliers-pane" role="tabpanel">
+        
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h5 class="h6 fw-bold mb-1 text-slate-900">Supplier Fulfillment Reliability & Spend</h5>
+            <p class="text-muted small mb-0">Comparison of promised lead time vs actual delivery pacing and purchasing budget.</p>
+          </div>
+          <a href="{% url 'suppliers:list' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-people me-1"></i> Manage Suppliers
+          </a>
+        </div>
+
+        <div class="table-responsive border rounded-3 bg-white shadow-sm">
+          <table class="table table-hover align-middle mb-0" style="font-size: 13px;">
+            <thead class="table-light">
+              <tr style="font-size: 11px; text-transform: uppercase; color: #64748B;">
+                <th>Supplier Company</th>
+                <th>Contact</th>
+                <th class="text-center">Delivered POs</th>
+                <th class="text-center">On-Time Rate</th>
+                <th class="text-center">Avg Delay</th>
+                <th class="text-end">Total Spend</th>
+                <th class="text-center">Reliability</th>
+                <th class="text-center">Action</th>
+              </tr>
             </thead>
             <tbody>
-                {% for supplier in supplier_metrics %}
-                <tr class="border-b border-gray-50">
-                    <td class="py-3 px-3 font-medium text-gray-800">{{ supplier.name }}</td>
-                    <td class="py-3 px-3 text-gray-500">{{ supplier.actual_lead_time }} days</td>
-                    <td class="py-3 px-3">
-                        {% if supplier.is_reliable %}
-                            <span class="text-green-600 font-medium">Reliable</span>
-                        {% else %}
-                            <span class="text-red-500 font-medium">Delayed</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="3" class="py-4 text-center text-sm text-gray-400">No supplier data available.</td></tr>
-                {% endfor %}
+              {% for s in supplier_metrics %}
+              <tr>
+                <td>
+                  <strong class="text-dark">{{ s.name }}</strong>
+                  <div class="text-muted" style="font-size: 11px;">Promised Lead Time: {{ s.lead_time_days }} days</div>
+                </td>
+                <td>
+                  {{ s.contact_person|default:"—" }}
+                  {% if s.phone %}
+                  <div class="text-muted" style="font-size: 11px;"><i class="bi bi-telephone me-1"></i>{{ s.phone }}</div>
+                  {% endif %}
+                </td>
+                <td class="text-center fw-semibold">{{ s.total_delivered }}</td>
+                <td class="text-center">
+                  <span class="badge {% if s.on_time_rate >= 80 %}bg-success-subtle text-success border border-success-subtle{% else %}bg-warning-subtle text-warning border border-warning-subtle{% endif %}">
+                    {{ s.on_time_rate }}%
+                  </span>
+                </td>
+                <td class="text-center text-muted">
+                  {{ s.avg_delay }} days
+                </td>
+                <td class="text-end fw-bold text-dark">
+                  ₱ {{ s.total_spend|floatformat:2 }}
+                </td>
+                <td class="text-center">
+                  {% if s.is_reliable %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle">
+                    <i class="bi bi-check-circle-fill me-1"></i> Reliable
+                  </span>
+                  {% else %}
+                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i> Delayed
+                  </span>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  <a href="{% url 'procurement' %}" class="btn btn-sm btn-light border" title="View Procurement Orders">
+                    <i class="bi bi-arrow-right"></i>
+                  </a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="8" class="text-center text-muted py-4">No active suppliers found.</td>
+              </tr>
+              {% endfor %}
             </tbody>
-        </table>
+          </table>
+        </div>
+
+      </div>
+
     </div>
-</div>
 
-<!-- Legacy stats -->
-<div class="stats-grid">
-<div class="stat-card"><span>Ingredients</span><strong>{{ total_ingredients }}</strong></div>
-<div class="stat-card"><span>Transactions</span><strong>{{ total_transactions }}</strong></div>
-<div class="stat-card"><span>Procurement Requests</span><strong>{{ total_procurements }}</strong></div>
-</div>
-<div class="panel mb-3">
-  <div class="panel-header"><h3>Storage Distribution & Status</h3></div>
-  <div class="row">
-    <div class="col-md-6" style="max-width:400px"><canvas id="reportCategory"></canvas></div>
-    <div class="col-md-6" style="max-width:400px"><canvas id="reportStatus"></canvas></div>
   </div>
-  {{ chart_category|json_script:"chart-cat" }}
-  {{ chart_status|json_script:"chart-status" }}
-  <script>
-  document.addEventListener('DOMContentLoaded', function(){
-    if(window.Chart){
-      const catEl=document.getElementById('chart-cat'); const statEl=document.getElementById('chart-status');
-      if(catEl){ const d=JSON.parse(catEl.textContent); const cols=d.colors||['#FE5F10','#871F09','#FED216']; new Chart(document.getElementById('reportCategory'),{type:'doughnut',data:{labels:d.labels,datasets:[{data:d.counts,backgroundColor:cols}]},options:{plugins:{legend:{position:'bottom'}}}});}
-      if(statEl){ const d=JSON.parse(statEl.textContent); const cols=d.colors||['#198754','#FED216','#FE5F10','#6c757d']; new Chart(document.getElementById('reportStatus'),{type:'bar',data:{labels:d.labels,datasets:[{label:'Ingredients',data:d.counts,backgroundColor:cols}]},options:{scales:{y:{beginAtZero:true}}}});}
-    }
-  });
-  </script>
+
 </div>
 
-<div class="dashboard-grid">
-<div class="panel"><div class="panel-header"><h3>Recent Stock Movement</h3></div>
-{% for tx in transactions %}
-<div class="activity-row"><div class="activity-icon"><i class="bi bi-arrow-left-right"></i></div><div><strong>{{ tx.ingredient.name }}</strong><p>{{ tx.get_transaction_type_display }} · {{ tx.quantity }} {{ tx.ingredient.unit }}</p></div><small>{{ tx.created_at|date:"M d, H:i" }}</small></div>
-{% empty %}<div class="empty-mini">No data.</div>{% endfor %}
-</div>
-<div class="panel"><div class="panel-header"><h3>Procurement Overview</h3></div>
-{% for item in procurements %}
-<div class="health-row"><div><strong>PR-{{ item.pk|stringformat:"04d" }}</strong><small>{{ item.ingredient.name }} · {{ item.requested_quantity }} {{ item.ingredient.unit }} {% if item.supplier %}({{ item.supplier.company_name }}){% endif %}</small></div><span class="status-badge status-{{ item.status|lower }}">{{ item.get_status_display }}</span></div>
-{% empty %}<div class="empty-mini">No procurement data.</div>{% endfor %}
-</div>
-</div>
+<!-- JSON PAYLOADS FOR CHART.JS -->
+{{ chart_category|json_script:"chart-category-data" }}
+{{ daily_trend_json|json_script:"chart-trend-data" }}
+
+<!-- CHART.JS INITIALIZATION -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  if (!window.Chart) {
+    console.warn("Chart.js not loaded");
+    return;
+  }
+
+  // 1. Capital Allocation Doughnut Chart
+  try {
+    const catDataEl = document.getElementById('chart-category-data');
+    const catCanvas = document.getElementById('categoryCapitalChart');
+    if (catDataEl && catCanvas) {
+      const data = JSON.parse(catDataEl.textContent);
+      const ctx = catCanvas.getContext('2d');
+      if (ctx && data.labels && data.labels.length) {
+        new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: data.labels,
+            datasets: [{
+              data: data.capitals,
+              backgroundColor: data.colors,
+              borderWidth: 2,
+              borderColor: '#ffffff',
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function(c) {
+                    return c.label + ': ₱' + Number(c.parsed).toLocaleString('en-US', {minimumFractionDigits: 2});
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+  } catch(e) { console.error("Category chart init failed:", e); }
+
+  // 2. Daily Movement & Waste Trend Line Chart
+  try {
+    const trendDataEl = document.getElementById('chart-trend-data');
+    const trendCanvas = document.getElementById('dailyTrendChart');
+    if (trendDataEl && trendCanvas) {
+      const data = JSON.parse(trendDataEl.textContent);
+      const ctx = trendCanvas.getContext('2d');
+      if (ctx && data.labels && data.labels.length) {
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: data.labels,
+            datasets: [
+              {
+                label: 'Usage Deductions',
+                data: data.deductions,
+                borderColor: '#FE5F10',
+                backgroundColor: 'rgba(254, 95, 16, 0.12)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                borderWidth: 2,
+              },
+              {
+                label: 'Waste / Spoilage',
+                data: data.spoilage,
+                borderColor: '#DC2626',
+                backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                borderWidth: 2,
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'top',
+                labels: { boxWidth: 12, font: { size: 11 } }
+              }
+            },
+            scales: {
+              x: { ticks: { font: { size: 10 } } },
+              y: { beginAtZero: true, ticks: { precision: 0 } }
+            }
+          }
+        });
+      } else if (trendCanvas) {
+        trendCanvas.parentElement.innerHTML = '<div class="text-center text-muted py-5" style="font-size:13px;">No transaction trends available in this time window.</div>';
+      }
+    }
+  } catch(e) { console.error("Trend chart init failed:", e); }
+});
+</script>
+
+<!-- PRINT OPTIMIZATION STYLESHEET -->
+<style>
+@media print {
+  .sidebar, .topbar, .panel-tabs-bar, .btn, a.btn {
+    display: none !important;
+  }
+  .main-area {
+    margin: 0 !important;
+    width: 100% !important;
+    padding: 0 !important;
+  }
+  .panel {
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+}
+</style>
 {% endblock %}
