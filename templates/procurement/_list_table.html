@@ -1,0 +1,138 @@
+<div class="panel">
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead>
+        <tr>
+          <th>Request</th>
+          <th>Ingredient</th>
+          <th>Qty</th>
+          <th>Priority</th>
+          <th>Status</th>
+          <th>Requested By</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in requests %}
+        <tr id="pr-row-{{ item.pk }}" {% if highlight_id and item.pk|stringformat:"s" == highlight_id|stringformat:"s" %}class="row-highlighted"{% endif %}>
+          <td>
+            <strong>PR-{{ item.pk|stringformat:"04d" }}</strong>
+            <div class="muted text-xs">{{ item.created_at|date:"M d, Y" }}</div>
+            {% if item.auto_generated %}
+              <div class="mt-1 d-flex align-items-center gap-1">
+                <span class="ai-source-badge" title="{{ item.reason }}">
+                  <i class="bi bi-stars me-1"></i>AI Forecast
+                </span>
+                <a href="{% url 'forecasting:forecast' %}" class="forecast-inspect-link" title="Inspect telemetry in Forecast Tab">
+                  <i class="bi bi-graph-down"></i>
+                </a>
+              </div>
+              {% if item.reason %}
+                <div class="muted" style="font-size: 0.72rem; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ item.reason }}">
+                  {{ item.reason }}
+                </div>
+              {% endif %}
+            {% endif %}
+          </td>
+          <td>
+            <strong>{{ item.ingredient.name }}</strong>
+            <div class="muted" style="font-size:0.75rem">
+              {% if item.supplier %}
+                <i class="bi bi-building me-1"></i>{{ item.supplier.company_name }}
+              {% elif item.ingredient.supplier_fk %}
+                <i class="bi bi-building me-1"></i>{{ item.ingredient.supplier_fk.company_name }}
+              {% else %}
+                <span class="text-slate-400">{{ item.ingredient.supplier|default:"No supplier" }}</span>
+              {% endif %}
+            </div>
+          </td>
+          <td>
+            <span class="fw-semibold">{{ item.requested_quantity }} {{ item.ingredient.unit }}</span>
+            {% if item.delivered_quantity %}
+              <div class="text-success text-xs"><i class="bi bi-check2 me-1"></i>Delivered: {{ item.delivered_quantity }}</div>
+            {% endif %}
+            {% if item.expected_date %}
+              <div class="muted text-xs">Exp: {{ item.expected_date }}</div>
+            {% endif %}
+          </td>
+          <td>
+            <span class="priority-{{ item.priority|lower }}">{{ item.get_priority_display }}</span>
+          </td>
+          <td>
+            <span class="status-badge status-{{ item.status|lower }}">{{ item.get_status_display }}</span>
+          </td>
+          <td>
+            <div class="d-flex align-items-center gap-1">
+              {% if item.auto_generated %}
+                <i class="bi bi-robot text-purple-600"></i>
+              {% else %}
+                <i class="bi bi-person text-slate-500"></i>
+              {% endif %}
+              <span>{{ item.requested_by.username|default:"System" }}</span>
+            </div>
+          </td>
+          <td>
+            {% if item.status == 'PENDING' %}
+              <div class="d-flex gap-1 align-items-center">
+                <form method="post" action="{% url 'procurement_approve' item.pk %}" class="d-inline">
+                  {% csrf_token %}
+                  <button class="btn btn-sm btn-success" title="Approve Request">
+                    <i class="bi bi-check-lg me-1"></i>Approve
+                  </button>
+                </form>
+                <a href="{% url 'procurement_email' item.pk %}" class="btn btn-sm btn-outline-secondary" title="View Viber & Email Dispatch">
+                  <i class="bi bi-chat-dots me-1"></i>Dispatch
+                </a>
+                <form method="post" action="{% url 'procurement_reject' item.pk %}" class="d-inline">
+                  {% csrf_token %}
+                  <button class="btn btn-sm btn-outline-danger" title="Reject Request">
+                    <i class="bi bi-x-lg"></i>
+                  </button>
+                </form>
+              </div>
+            {% elif item.status == 'APPROVED' %}
+              <div class="d-flex gap-1 align-items-center">
+                <form method="post" action="{% url 'procurement_ordered' item.pk %}" class="d-inline">
+                  {% csrf_token %}
+                  <button class="btn btn-sm btn-primary" title="Mark as Dispatched/Ordered">
+                    <i class="bi bi-truck me-1"></i>Mark Ordered
+                  </button>
+                </form>
+                <a href="{% url 'procurement_email' item.pk %}" class="btn btn-sm btn-outline-primary" title="Open Viber & Corporate Email Dispatch">
+                  <i class="bi bi-send me-1"></i>Dispatch (Viber/Email)
+                </a>
+              </div>
+            {% elif item.status == 'ORDERED' %}
+              <div class="d-flex gap-1 align-items-center">
+                <form method="post" action="{% url 'procurement_delivered' item.pk %}" class="d-inline">
+                  {% csrf_token %}
+                  <button class="btn btn-sm btn-success" title="Receive delivery into inventory">
+                    <i class="bi bi-box-arrow-in-down me-1"></i>Mark Delivered
+                  </button>
+                </form>
+                <a href="{% url 'procurement_email' item.pk %}" class="btn btn-sm btn-outline-secondary" title="View Sent Dispatch">
+                  <i class="bi bi-eye me-1"></i>Dispatch
+                </a>
+              </div>
+            {% else %}
+              <a href="{% url 'procurement_email' item.pk %}" class="btn btn-sm btn-light" title="Inspect Completed PO">
+                <i class="bi bi-file-earmark-text me-1"></i>View PO
+              </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7">
+            <div class="empty-mini py-5 text-center">
+              <i class="bi bi-inbox text-slate-300 fs-1 d-block mb-2"></i>
+              <p class="text-slate-500 mb-0 font-medium">No procurement requests found in this view.</p>
+              <small class="text-slate-400">Requests can be initiated manually via "+ New Request" or auto-generated by the Forecast Tab.</small>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

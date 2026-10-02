@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.contrib import messages
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from accounts.decorators import role_required
 from accounts.models import Profile
@@ -26,17 +27,43 @@ MANAGEMENT = (
 
 @role_required(*MANAGEMENT)
 def procurement_list(request):
-    requests = ProcurementRequest.objects.select_related(
+    status_filter = request.GET.get("status", "").upper()
+    valid_statuses = {s.value for s in ProcurementRequest.Status}
+
+    base_qs = ProcurementRequest.objects.select_related(
         "ingredient", "supplier", "requested_by", "approved_by"
     )
 
-    return render(request, "procurement/list.html", {
-        "requests": requests[:300],
-        "pending": requests.filter(status=ProcurementRequest.Status.PENDING).count(),
-        "approved": requests.filter(status=ProcurementRequest.Status.APPROVED).count(),
-        "ordered": requests.filter(status=ProcurementRequest.Status.ORDERED).count(),
-        "delivered": requests.filter(status=ProcurementRequest.Status.DELIVERED).count(),
-    })
+    counts = {
+        "all": base_qs.count(),
+        "pending": base_qs.filter(status=ProcurementRequest.Status.PENDING).count(),
+        "approved": base_qs.filter(status=ProcurementRequest.Status.APPROVED).count(),
+        "ordered": base_qs.filter(status=ProcurementRequest.Status.ORDERED).count(),
+        "delivered": base_qs.filter(status=ProcurementRequest.Status.DELIVERED).count(),
+    }
+
+    filtered_qs = base_qs
+    if status_filter in valid_statuses:
+        filtered_qs = base_qs.filter(status=status_filter)
+    else:
+        status_filter = "ALL"
+
+    ctx = {
+        "requests": filtered_qs[:300],
+        "active_status": status_filter,
+        "counts": counts,
+        "pending": counts["pending"],
+        "approved": counts["approved"],
+        "ordered": counts["ordered"],
+        "delivered": counts["delivered"],
+    }
+
+    if request.headers.get("HX-Request"):
+        return render(request, "procurement/_list_table.html", ctx)
+
+    params = request.GET.copy()
+    params["tab"] = "procurement"
+    return redirect(f"{reverse('forecasting:forecast')}?{params.urlencode()}")
 
 
 @role_required(*MANAGEMENT)

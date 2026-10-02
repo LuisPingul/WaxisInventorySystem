@@ -1,6 +1,6 @@
 # Project State · INVENTIQ (WaxisInventorySystem)
 
-> **Last Updated**: 2026-10-01  
+> **Last Updated**: 2026-10-02  
 > **Client / Organization**: Waxi's / SND Foods International  
 > **Repository**: `WaxisInventorySystem`
 
@@ -75,6 +75,16 @@ WaxisInventorySystem/
    * Scoped legacy `.nav-link` CSS to `.sidebar .nav-link` to prevent white-on-white text bleeding into page content.
    * Modern Option A Segmented Pill Tab Bar (`.forecast-tabs-container`, `.forecast-tab-btn`) with high-contrast slate text (`#475569`, 7.2:1 contrast, WCAG AAA), tactile warm hover state, Waxi's brand maroon active pill (`#871F09` to `#5E1507`), Brand Gold icon (`#FED216`), and live count badges (`8 AI Alerts`, `Live Rhythm`, `Top 12`).
    * Browser URL synchronization (`window.history.replaceState`) and auto-activation from `?tab=...` on load with smooth Chart.js timeline rendering.
+8. **Procurement Status Tabs, Interactive KPI Cards & Closed-Loop Forecast Integration**:
+   * Upgraded `/procurement/` with high-contrast segmented pill tab bar: **All Requests**, **Pending Approval**, **Ready to Dispatch**, **In Transit**, and **Delivered History**, matching the touch-first design of the Forecast Tab.
+   * Interactive top KPI stat cards synchronized with status tabs and instant HTMX partial swapping (`_list_table.html`).
+   * Rich AI traceability badges (`.ai-source-badge`) linking procurement requests directly back to `/forecast/`.
+   * Closed-loop notification toast integration connecting "Convert to PR" with instant procurement review.
+9. **Unified Forecast & Procurement Hub with Operational Sidebar Hierarchy**:
+   * Sidebar navigation re-ordered to mirror real kitchen operations: Dashboard $\rightarrow$ Inventory $\rightarrow$ Transactions $\rightarrow$ **Forecast** $\rightarrow$ **Suppliers** $\rightarrow$ Reports $\rightarrow$ Audit Logs. Standalone top-level Procurement link removed.
+   * Unified 4-tab Forecast Hub: **Consumption Forecast**, **Procurement Requests** (adjacent!), **Supplier Radar**, and **Stockout Timeline**.
+   * 1-Click "Convert to PR" micro-UX automatically shifts active tab to Procurement Requests, highlights the new PR with `.row-highlighted` glow, and provides instant Viber/Email dispatch.
+   * 100% backward compatibility redirect from `/procurement/` to `/forecast/?tab=procurement` with HTMX partial table swaps preserved.
 
 ---
 
@@ -100,4 +110,5 @@ Agents must **NEVER** modify or roll back the following systems:
 * ⛔ **Do NOT grant Crew access to general dashboard/inventory routes**. The 2-tab crew lock is an established security and UX constraint.
 * ⛔ **Do NOT alter brand tokens in `static/css/style.css`**: Maroon (`#871F09`), Orange (`#FE5F10`), Amber (`#FED216`), Charcoal (`#1E293B`).
 * ⛔ **Do NOT un-scope `.sidebar .nav-link` or re-introduce global `.nav-link` color overrides** that turn inactive tabs white or invisible. All in-page tabs must maintain high contrast (WCAG AA/AAA compliant).
+* ⛔ **Do NOT restore standalone top-level 'Procurement' in the sidebar**. Procurement is unified inside the Forecast Hub (`/forecast/?tab=procurement`), and `/procurement/` redirects to it.
 * ⛔ **Do NOT re-introduce `MESSAGE_TAGS = { 25: "error" }` in `config/settings.py`**.

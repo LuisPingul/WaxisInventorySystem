@@ -17,12 +17,48 @@ from .services import generate_all_forecasts
 def forecast(request):
     risk_filter = request.GET.get("risk", "")
     tab = request.GET.get("tab", "consumption")
-    active_tab = tab if tab in {"consumption", "radar", "timeline"} else "consumption"
+    active_tab = tab if tab in {"consumption", "procurement", "radar", "timeline"} else "consumption"
+    highlight_id = request.GET.get("highlight", "")
+
     ctx = build_forecast_context(days_window=30, risk_filter=risk_filter, radar_limit=20)
     ctx["active_tab"] = active_tab
-    if is_htmx(request):
+    ctx["highlight_id"] = highlight_id
+
+    # Load Procurement data for Tab 2 (Procurement Requests)
+    base_prs = ProcurementRequest.objects.select_related(
+        "ingredient", "supplier", "requested_by", "approved_by"
+    )
+    status_filter = request.GET.get("status", "").upper()
+    valid_statuses = {s.value for s in ProcurementRequest.Status}
+
+    counts = {
+        "all": base_prs.count(),
+        "pending": base_prs.filter(status=ProcurementRequest.Status.PENDING).count(),
+        "approved": base_prs.filter(status=ProcurementRequest.Status.APPROVED).count(),
+        "ordered": base_prs.filter(status=ProcurementRequest.Status.ORDERED).count(),
+        "delivered": base_prs.filter(status=ProcurementRequest.Status.DELIVERED).count(),
+    }
+
+    if status_filter in valid_statuses:
+        filtered_prs = base_prs.filter(status=status_filter)
+    else:
+        status_filter = "ALL"
+        filtered_prs = base_prs
+
+    ctx["procurement_counts"] = counts
+    ctx["pending_prs_count"] = counts["pending"]
+    ctx["procurement_requests"] = filtered_prs[:200]
+    ctx["procurement_active_status"] = status_filter
+
+    if is_htmx(request) and request.GET.get("target") == "procurement-table":
+        return render(request, "procurement/_list_table.html", {
+            "requests": filtered_prs[:200],
+            "highlight_id": highlight_id,
+        })
+    if is_htmx(request) and request.GET.get("risk") is not None:
         # Risk filter via HTMX targets #tab-consumption — return table only
         return render(request, "forecasting/_forecast_table.html", ctx)
+
     return render(request, "forecasting/dashboard.html", ctx)
 
 
@@ -80,9 +116,8 @@ def alert_approve(request, pk):
     )
     alert.status = AIProcurementAlert.Status.CONVERTED
     alert.save(update_fields=["status", "updated_at"])
-    log_action(request.user, "CONVERT", "Forecasting", alert.pk, f"Alert converted to PR-{req.pk:04d}")
-    messages.success(request, f"Alert converted to procurement request PR-{req.pk:04d}.")
-    return redirect("forecasting:forecast")
+    messages.success(request, f"Alert converted to PR-{req.pk:04d}! Review & dispatch to supplier.")
+    return redirect(f"{reverse('forecasting:forecast')}?tab=procurement&highlight={req.pk}")
 
 
 @role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER, Profile.Role.MANAGER)

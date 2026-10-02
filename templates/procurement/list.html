@@ -2,45 +2,212 @@
 {% block title %}Procurement · Waxi's{% endblock %}
 {% block page_title %}Procurement{% endblock %}
 {% block content %}
-<div class="page-heading"><div><h1>Procurement</h1><p>Manage replenishment requests and purchasing workflow.</p></div><a href="{% url 'procurement_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-2"></i>New Request</a></div>
-<div class="stats-grid">
-<div class="stat-card"><span>Pending</span><strong>{{ pending }}</strong><i class="bi bi-hourglass-split"></i></div>
-<div class="stat-card"><span>Approved</span><strong>{{ approved }}</strong><i class="bi bi-check-circle"></i></div>
-<div class="stat-card"><span>Ordered</span><strong>{{ ordered }}</strong><i class="bi bi-truck"></i></div>
-<div class="stat-card"><span>Delivered</span><strong>{{ delivered }}</strong><i class="bi bi-box2-heart"></i></div>
+<div class="page-heading">
+  <div>
+    <h1>Procurement & Purchasing</h1>
+    <p>Manage ingredient replenishment requests, approve purchase orders, and dispatch via Viber and Email.</p>
+  </div>
+  <div class="d-flex gap-2 align-items-center">
+    <a href="{% url 'forecasting:forecast' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-graph-down me-1"></i> Forecast & AI Alerts
+    </a>
+    <a href="{% url 'procurement_create' %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-lg me-1"></i> New Request
+    </a>
+  </div>
 </div>
-<div class="panel">
-<div class="table-responsive">
-<table class="table align-middle">
-<thead><tr><th>Request</th><th>Ingredient</th><th>Qty</th><th>Priority</th><th>Status</th><th>Requested By</th><th>Action</th></tr></thead>
-<tbody>
-{% for item in requests %}
-<tr>
-<td><strong>PR-{{ item.pk|stringformat:"04d" }}</strong><div class="muted">{{ item.created_at|date:"M d, Y" }}</div>{% if item.auto_generated %}<span class="badge bg-info" style="font-size:0.65rem">AI</span>{% endif %}</td>
-<td>{{ item.ingredient.name }}<div class="muted" style="font-size:0.75rem">{% if item.supplier %}{{ item.supplier.company_name }}{% elif item.ingredient.supplier_fk %}{{ item.ingredient.supplier_fk.company_name }}{% else %}{{ item.ingredient.supplier|default:"No supplier" }}{% endif %}</div></td>
-<td>{{ item.requested_quantity }} {{ item.ingredient.unit }}{% if item.delivered_quantity %}<div class="muted" style="font-size:0.75rem">Delivered: {{ item.delivered_quantity }}</div>{% endif %}{% if item.expected_date %}<div class="muted" style="font-size:0.75rem">Exp: {{ item.expected_date }}</div>{% endif %}</td>
-<td><span class="priority-{{ item.priority|lower }}">{{ item.get_priority_display }}</span></td>
-<td><span class="status-badge status-{{ item.status|lower }}">{{ item.get_status_display }}</span></td>
-<td>{{ item.requested_by.username|default:"System" }}</td>
-<td>
-{% if item.status == 'PENDING' %}
-<form method="post" action="{% url 'procurement_approve' item.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-success">Approve</button></form>
-<a href="{% url 'procurement_email' item.pk %}" class="btn btn-sm btn-outline-secondary" title="View Viber & Email Dispatch"><i class="bi bi-chat-dots me-1"></i> Dispatch</a>
-<form method="post" action="{% url 'procurement_reject' item.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">Reject</button></form>
-{% elif item.status == 'APPROVED' %}
-<form method="post" action="{% url 'procurement_ordered' item.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-primary">Mark Ordered</button></form>
-<a href="{% url 'procurement_email' item.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-send me-1"></i> Dispatch (Viber/Email)</a>
-{% elif item.status == 'ORDERED' %}
-<form method="post" action="{% url 'procurement_delivered' item.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-success">Mark Delivered</button></form>
-<a href="{% url 'procurement_email' item.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-send me-1"></i> Dispatch</a>
-{% else %}
-<a href="{% url 'procurement_email' item.pk %}" class="btn btn-sm btn-light"><i class="bi bi-eye me-1"></i> View Dispatch</a>
-{% endif %}
-</td>
-</tr>
-{% empty %}<tr><td colspan="7"><div class="empty-mini py-5">No procurement requests yet.</div></td></tr>{% endfor %}
-</tbody>
-</table>
+
+<!-- Interactive KPI Stat Cards Grid -->
+<div class="stats-grid mb-4">
+  <div class="stat-card procurement-stat-card {% if active_status == 'PENDING' %}active-stat-card{% endif %}"
+       data-status="PENDING"
+       role="button"
+       tabindex="0"
+       title="Filter by Pending Requests">
+    <span>Pending Review</span>
+    <strong>{{ pending }}</strong>
+    <i class="bi bi-hourglass-split"></i>
+  </div>
+
+  <div class="stat-card procurement-stat-card {% if active_status == 'APPROVED' %}active-stat-card{% endif %}"
+       data-status="APPROVED"
+       role="button"
+       tabindex="0"
+       title="Filter by Approved / Ready to Dispatch">
+    <span>Ready to Dispatch</span>
+    <strong>{{ approved }}</strong>
+    <i class="bi bi-check-circle"></i>
+  </div>
+
+  <div class="stat-card procurement-stat-card {% if active_status == 'ORDERED' %}active-stat-card{% endif %}"
+       data-status="ORDERED"
+       role="button"
+       tabindex="0"
+       title="Filter by Orders In Transit">
+    <span>In Transit</span>
+    <strong>{{ ordered }}</strong>
+    <i class="bi bi-truck"></i>
+  </div>
+
+  <div class="stat-card procurement-stat-card {% if active_status == 'DELIVERED' %}active-stat-card{% endif %}"
+       data-status="DELIVERED"
+       role="button"
+       tabindex="0"
+       title="Filter by Delivered History">
+    <span>Delivered</span>
+    <strong>{{ delivered }}</strong>
+    <i class="bi bi-box2-heart"></i>
+  </div>
 </div>
+
+<!-- Segmented Status Tab Navigation -->
+<div class="procurement-tabs-container" role="tablist" id="procurementTabs">
+  <button class="procurement-tab-btn {% if active_status == 'ALL' %}active{% endif %}"
+          data-status="ALL"
+          hx-get="{% url 'procurement' %}?status=ALL"
+          hx-target="#procurement-table-container"
+          hx-swap="innerHTML"
+          role="tab"
+          aria-selected="{% if active_status == 'ALL' %}true{% else %}false{% endif %}">
+    <i class="bi bi-list-check"></i>
+    <span>All Requests</span>
+    <span class="procurement-tab-badge">{{ counts.all }}</span>
+  </button>
+
+  <button class="procurement-tab-btn {% if active_status == 'PENDING' %}active{% endif %}"
+          data-status="PENDING"
+          hx-get="{% url 'procurement' %}?status=PENDING"
+          hx-target="#procurement-table-container"
+          hx-swap="innerHTML"
+          role="tab"
+          aria-selected="{% if active_status == 'PENDING' %}true{% else %}false{% endif %}">
+    <i class="bi bi-hourglass-split"></i>
+    <span>Pending Approval</span>
+    <span class="procurement-tab-badge badge-pending">{{ counts.pending }}</span>
+  </button>
+
+  <button class="procurement-tab-btn {% if active_status == 'APPROVED' %}active{% endif %}"
+          data-status="APPROVED"
+          hx-get="{% url 'procurement' %}?status=APPROVED"
+          hx-target="#procurement-table-container"
+          hx-swap="innerHTML"
+          role="tab"
+          aria-selected="{% if active_status == 'APPROVED' %}true{% else %}false{% endif %}">
+    <i class="bi bi-check2-circle"></i>
+    <span>Ready to Dispatch</span>
+    <span class="procurement-tab-badge badge-approved">{{ counts.approved }}</span>
+  </button>
+
+  <button class="procurement-tab-btn {% if active_status == 'ORDERED' %}active{% endif %}"
+          data-status="ORDERED"
+          hx-get="{% url 'procurement' %}?status=ORDERED"
+          hx-target="#procurement-table-container"
+          hx-swap="innerHTML"
+          role="tab"
+          aria-selected="{% if active_status == 'ORDERED' %}true{% else %}false{% endif %}">
+    <i class="bi bi-truck"></i>
+    <span>In Transit</span>
+    <span class="procurement-tab-badge badge-ordered">{{ counts.ordered }}</span>
+  </button>
+
+  <button class="procurement-tab-btn {% if active_status == 'DELIVERED' %}active{% endif %}"
+          data-status="DELIVERED"
+          hx-get="{% url 'procurement' %}?status=DELIVERED"
+          hx-target="#procurement-table-container"
+          hx-swap="innerHTML"
+          role="tab"
+          aria-selected="{% if active_status == 'DELIVERED' %}true{% else %}false{% endif %}">
+    <i class="bi bi-box2-heart"></i>
+    <span>Delivered History</span>
+    <span class="procurement-tab-badge badge-delivered">{{ counts.delivered }}</span>
+  </button>
 </div>
+
+<!-- Table Container -->
+<div id="procurement-table-container">
+  {% include "procurement/_list_table.html" %}
+</div>
+
+<script>
+(function() {
+  const tabsContainer = document.getElementById("procurementTabs");
+  const tabBtns = document.querySelectorAll("#procurementTabs .procurement-tab-btn");
+  const statCards = document.querySelectorAll(".procurement-stat-card");
+
+  function setActiveStatus(status) {
+    status = (status || "ALL").toUpperCase();
+    
+    // Update Tab Buttons
+    tabBtns.forEach(btn => {
+      const btnStatus = btn.getAttribute("data-status");
+      if (btnStatus === status) {
+        btn.classList.add("active");
+        btn.setAttribute("aria-selected", "true");
+      } else {
+        btn.classList.remove("active");
+        btn.setAttribute("aria-selected", "false");
+      }
+    });
+
+    // Update Stat Cards Highlight
+    statCards.forEach(card => {
+      const cardStatus = card.getAttribute("data-status");
+      if (cardStatus === status) {
+        card.classList.add("active-stat-card");
+      } else {
+        card.classList.remove("active-stat-card");
+      }
+    });
+
+    // Update URL query string
+    const url = new URL(window.location);
+    if (status === "ALL") {
+      url.searchParams.delete("status");
+    } else {
+      url.searchParams.set("status", status);
+    }
+    window.history.replaceState({}, "", url);
+  }
+
+  // Handle Tab Click
+  tabBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const status = btn.getAttribute("data-status");
+      setActiveStatus(status);
+    });
+  });
+
+  // Handle Stat Card Click -> Trigger Tab
+  statCards.forEach(card => {
+    card.addEventListener("click", () => {
+      const targetStatus = card.getAttribute("data-status");
+      const matchingTab = document.querySelector(`#procurementTabs .procurement-tab-btn[data-status="${targetStatus}"]`);
+      if (matchingTab) {
+        matchingTab.click();
+      }
+    });
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        card.click();
+      }
+    });
+  });
+
+  // Check URL on page load
+  function checkUrlStatus() {
+    const params = new URLSearchParams(window.location.search);
+    const statusParam = params.get("status");
+    if (statusParam) {
+      setActiveStatus(statusParam);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", checkUrlStatus);
+  } else {
+    checkUrlStatus();
+  }
+})();
+</script>
 {% endblock %}

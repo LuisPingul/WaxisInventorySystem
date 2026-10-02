@@ -125,3 +125,43 @@ This document records the architectural and design decisions made for **INVENTIQ
   * *Unscoped Global Inactive Override*: Rejected as fragile; scoping to `.sidebar .nav-link` is the root architectural fix.
 * **Impact**: Zero disappearing tabs, 100% WCAG AAA contrast ratio compliance, URL bookmarkability for each forecast view, and seamless tab switching with Chart.js timeline rendering.
 
+---
+
+### ADR-010: Procurement Status Tabs, Interactive KPI Cards & Closed-Loop Forecast Integration
+* **Date**: 2026-10-02
+* **Status**: Accepted
+* **Decision**:
+  1. Upgrade `/procurement/` with the exact same high-contrast segmented pill tab bar (`.procurement-tabs-container`, `.procurement-tab-btn`) as `/forecast/`: **All Requests**, **Pending Approval**, **Ready to Dispatch**, **In Transit**, and **Delivered History**, each equipped with semantic live count badges.
+  2. Make the 4 top KPI stat cards (`Pending`, `Approved`, `Ordered`, `Delivered`) interactive, clicking a card syncs and activates its corresponding tab filter.
+  3. Integrate HTMX partial updates for table swapping (`_list_table.html`) on tab clicks without full page reloads, accompanied by URL synchronization (`?status=...`).
+  4. Implement rich AI origin traceability in procurement rows (`.ai-source-badge` and direct link to `/forecast/`).
+  5. Connect Django flash messages to the client-side toast notification system in `base.html` for 1-click confirmation when converting alerts to PRs.
+* **Reason**: The Procurement module previously lacked status filtering and UI/UX parity with the upgraded Forecast tab. Connecting AI stockout alerts directly to purchasing with rich traceability and interactive tabs closes the operational loop between predictive analytics and vendor order dispatch.
+* **Alternatives Considered**:
+  * *Dropdown select filter*: Rejected as cumbersome; segmented pill tabs provide instant 1-tap visibility of request counts across each phase.
+* **Impact**: Complete UI/UX consistency across Forecast and Procurement, sub-second status filtering, WCAG AAA text contrast, and full traceability from stockout prediction to Viber dispatch.
+
+---
+
+### ADR-011: Nesting Procurement Inside Forecast Hub & Sidebar Navigation Reordering
+* **Date**: 2026-10-02
+* **Status**: Accepted
+* **Decision**:
+  1. Reorder sidebar navigation drawer in `templates/base.html`: Dashboard $\rightarrow$ Inventory $\rightarrow$ Transactions $\rightarrow$ **Forecast** $\rightarrow$ **Suppliers** $\rightarrow$ Reports $\rightarrow$ Audit Logs.
+  2. Consolidate Procurement into the Forecast Hub (`/forecast/`) as a dedicated second tab immediately adjacent to Consumption Forecast:
+     - Tab 1: **Consumption Forecast** (`#tab-consumption`)
+     - Tab 2: **Procurement Requests** (`#tab-procurement`)
+     - Tab 3: **Supplier Radar** (`#tab-radar`)
+     - Tab 4: **Stockout Timeline** (`#tab-timeline`)
+  3. Seamless 1-Click "Convert to PR" Handoff: Approving an AI alert (`alert_approve`) redirects to `/forecast/?tab=procurement&highlight=<pk>`, smoothly switching to the Procurement Requests tab and applying a glowing pulse animation (`.row-highlighted`) with smooth scroll to the newly generated PR.
+  4. 100% Backwards Compatibility: Direct visits to `/procurement/` issue an HTTP 302 redirect to `/forecast/?tab=procurement`, preserving all bookmarks and links, while HTMX partial requests continue returning `_list_table.html` for sub-second in-tab status filtering.
+* **Reason**:
+  - Eliminates the cognitive "context gap" where converting an alert to a purchase order forced a jarring navigation to a completely separate page.
+  - Matches the natural kitchen operational funnel: Inventory (On-Hand) $\rightarrow$ Transactions (Daily Burn) $\rightarrow$ Forecast & Orders (Needs) $\rightarrow$ Suppliers (Vendors) $\rightarrow$ Reports (Analytics).
+  - Keeps the navigation drawer focused and decluttered by removing duplicate top-level links.
+* **Alternatives Considered**:
+  - *Keep standalone Procurement in sidebar alongside sub-tab*: Rejected as redundant and confusing to users.
+  - *Full page reload on "Convert to PR" without tab switch*: Rejected because user loses track of the generated PR.
+* **Impact**: Zero context disconnection, seamless 1-click PO creation to Viber dispatch, WCAG AAA contrast, and backwards-compatible URL routing.
+
+

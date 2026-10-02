@@ -37,27 +37,44 @@
     {% endif %}
   </button>
 
-  <button class="forecast-tab-btn {% if active_tab|default:'consumption' == 'radar' %}active{% endif %}"
+  <button class="forecast-tab-btn {% if active_tab == 'procurement' %}active{% endif %}"
+          id="btn-tab-procurement"
+          data-bs-toggle="tab"
+          data-bs-target="#tab-procurement"
+          data-tab-name="procurement"
+          role="tab"
+          aria-controls="tab-procurement"
+          aria-selected="{% if active_tab == 'procurement' %}true{% else %}false{% endif %}">
+    <i class="bi bi-cart3"></i>
+    <span>Procurement Requests</span>
+    {% if pending_prs_count > 0 %}
+      <span class="forecast-tab-badge badge-alert">{{ pending_prs_count }} Pending</span>
+    {% else %}
+      <span class="forecast-tab-badge">{{ procurement_counts.all|default:0 }}</span>
+    {% endif %}
+  </button>
+
+  <button class="forecast-tab-btn {% if active_tab == 'radar' %}active{% endif %}"
           id="btn-tab-radar"
           data-bs-toggle="tab"
           data-bs-target="#tab-radar"
           data-tab-name="radar"
           role="tab"
           aria-controls="tab-radar"
-          aria-selected="{% if active_tab|default:'consumption' == 'radar' %}true{% else %}false{% endif %}">
+          aria-selected="{% if active_tab == 'radar' %}true{% else %}false{% endif %}">
     <i class="bi bi-radar"></i>
     <span>Supplier Radar</span>
     <span class="forecast-tab-badge">Live Rhythm</span>
   </button>
 
-  <button class="forecast-tab-btn {% if active_tab|default:'consumption' == 'timeline' %}active{% endif %}"
+  <button class="forecast-tab-btn {% if active_tab == 'timeline' %}active{% endif %}"
           id="btn-tab-timeline"
           data-bs-toggle="tab"
           data-bs-target="#tab-timeline"
           data-tab-name="timeline"
           role="tab"
           aria-controls="tab-timeline"
-          aria-selected="{% if active_tab|default:'consumption' == 'timeline' %}true{% else %}false{% endif %}">
+          aria-selected="{% if active_tab == 'timeline' %}true{% else %}false{% endif %}">
     <i class="bi bi-bar-chart-line"></i>
     <span>Stockout Timeline</span>
     <span class="forecast-tab-badge">Top 12</span>
@@ -70,13 +87,140 @@
     {% include "forecasting/_forecast_table.html" with rows=rows alerts=alerts %}
   </div>
 
+  <!-- Procurement Requests Tab -->
+  <div class="tab-pane fade {% if active_tab == 'procurement' %}show active{% endif %}" id="tab-procurement" role="tabpanel">
+    <!-- Header / Quick Actions for Procurement -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+      <div>
+        <h3 class="fs-5 fw-bold mb-1 text-slate-800">Ingredient Replenishment & Purchase Requests</h3>
+        <p class="text-muted small mb-0">Review pending requests, dispatch purchase orders to suppliers via Viber or Email, and track fulfillment.</p>
+      </div>
+      <div>
+        <a href="{% url 'procurement_create' %}" class="btn btn-primary btn-sm">
+          <i class="bi bi-plus-lg me-1"></i> New Request
+        </a>
+      </div>
+    </div>
+
+    <!-- Interactive KPI Stat Cards Grid -->
+    <div class="stats-grid mb-4">
+      <div class="stat-card procurement-stat-card {% if procurement_active_status == 'PENDING' %}active-stat-card{% endif %}"
+           data-status="PENDING"
+           role="button"
+           tabindex="0"
+           title="Filter by Pending Requests">
+        <span>Pending Review</span>
+        <strong>{{ procurement_counts.pending }}</strong>
+        <i class="bi bi-hourglass-split"></i>
+      </div>
+
+      <div class="stat-card procurement-stat-card {% if procurement_active_status == 'APPROVED' %}active-stat-card{% endif %}"
+           data-status="APPROVED"
+           role="button"
+           tabindex="0"
+           title="Filter by Approved / Ready to Dispatch">
+        <span>Ready to Dispatch</span>
+        <strong>{{ procurement_counts.approved }}</strong>
+        <i class="bi bi-check-circle"></i>
+      </div>
+
+      <div class="stat-card procurement-stat-card {% if procurement_active_status == 'ORDERED' %}active-stat-card{% endif %}"
+           data-status="ORDERED"
+           role="button"
+           tabindex="0"
+           title="Filter by Orders In Transit">
+        <span>In Transit</span>
+        <strong>{{ procurement_counts.ordered }}</strong>
+        <i class="bi bi-truck"></i>
+      </div>
+
+      <div class="stat-card procurement-stat-card {% if procurement_active_status == 'DELIVERED' %}active-stat-card{% endif %}"
+           data-status="DELIVERED"
+           role="button"
+           tabindex="0"
+           title="Filter by Delivered History">
+        <span>Delivered</span>
+        <strong>{{ procurement_counts.delivered }}</strong>
+        <i class="bi bi-box2-heart"></i>
+      </div>
+    </div>
+
+    <!-- Segmented Status Tab Navigation -->
+    <div class="procurement-tabs-container mb-3" role="tablist" id="procurementTabs">
+      <button class="procurement-tab-btn {% if procurement_active_status == 'ALL' %}active{% endif %}"
+              data-status="ALL"
+              hx-get="{% url 'forecasting:forecast' %}?tab=procurement&target=procurement-table&status=ALL"
+              hx-target="#procurement-table-container"
+              hx-swap="innerHTML"
+              role="tab"
+              aria-selected="{% if procurement_active_status == 'ALL' %}true{% else %}false{% endif %}">
+        <i class="bi bi-list-check"></i>
+        <span>All Requests</span>
+        <span class="procurement-tab-badge">{{ procurement_counts.all }}</span>
+      </button>
+
+      <button class="procurement-tab-btn {% if procurement_active_status == 'PENDING' %}active{% endif %}"
+              data-status="PENDING"
+              hx-get="{% url 'forecasting:forecast' %}?tab=procurement&target=procurement-table&status=PENDING"
+              hx-target="#procurement-table-container"
+              hx-swap="innerHTML"
+              role="tab"
+              aria-selected="{% if procurement_active_status == 'PENDING' %}true{% else %}false{% endif %}">
+        <i class="bi bi-hourglass-split"></i>
+        <span>Pending Approval</span>
+        <span class="procurement-tab-badge badge-pending">{{ procurement_counts.pending }}</span>
+      </button>
+
+      <button class="procurement-tab-btn {% if procurement_active_status == 'APPROVED' %}active{% endif %}"
+              data-status="APPROVED"
+              hx-get="{% url 'forecasting:forecast' %}?tab=procurement&target=procurement-table&status=APPROVED"
+              hx-target="#procurement-table-container"
+              hx-swap="innerHTML"
+              role="tab"
+              aria-selected="{% if procurement_active_status == 'APPROVED' %}true{% else %}false{% endif %}">
+        <i class="bi bi-check2-circle"></i>
+        <span>Ready to Dispatch</span>
+        <span class="procurement-tab-badge badge-approved">{{ procurement_counts.approved }}</span>
+      </button>
+
+      <button class="procurement-tab-btn {% if procurement_active_status == 'ORDERED' %}active{% endif %}"
+              data-status="ORDERED"
+              hx-get="{% url 'forecasting:forecast' %}?tab=procurement&target=procurement-table&status=ORDERED"
+              hx-target="#procurement-table-container"
+              hx-swap="innerHTML"
+              role="tab"
+              aria-selected="{% if procurement_active_status == 'ORDERED' %}true{% else %}false{% endif %}">
+        <i class="bi bi-truck"></i>
+        <span>In Transit</span>
+        <span class="procurement-tab-badge badge-ordered">{{ procurement_counts.ordered }}</span>
+      </button>
+
+      <button class="procurement-tab-btn {% if procurement_active_status == 'DELIVERED' %}active{% endif %}"
+              data-status="DELIVERED"
+              hx-get="{% url 'forecasting:forecast' %}?tab=procurement&target=procurement-table&status=DELIVERED"
+              hx-target="#procurement-table-container"
+              hx-swap="innerHTML"
+              role="tab"
+              aria-selected="{% if procurement_active_status == 'DELIVERED' %}true{% else %}false{% endif %}">
+        <i class="bi bi-box2-heart"></i>
+        <span>Delivered History</span>
+        <span class="procurement-tab-badge badge-delivered">{{ procurement_counts.delivered }}</span>
+      </button>
+    </div>
+
+    <!-- Procurement Table Container -->
+    <div id="procurement-table-container">
+      {% include "procurement/_list_table.html" with requests=procurement_requests highlight_id=highlight_id %}
+    </div>
+  </div>
+
   <!-- Supplier Radar Tab -->
-  <div class="tab-pane fade {% if active_tab|default:'consumption' == 'radar' %}show active{% endif %}" id="tab-radar" role="tabpanel">
+  <div class="tab-pane fade {% if active_tab == 'radar' %}show active{% endif %}" id="tab-radar" role="tabpanel">
     {% include "forecasting/_radar_panel.html" with radar_alerts=radar_alerts radar_id="procurement-radar-forecast" poll=True %}
   </div>
 
   <!-- Stockout Timeline Tab -->
-  <div class="tab-pane fade {% if active_tab|default:'consumption' == 'timeline' %}show active{% endif %}" id="tab-timeline" role="tabpanel">
+  <div class="tab-pane fade {% if active_tab == 'timeline' %}show active{% endif %}" id="tab-timeline" role="tabpanel">
     <div class="panel">
       <div class="panel-header"><h3>Days Until Stockout (Top 12 at risk)</h3><small class="muted">Color by combined risk</small></div>
       <div class="panel-body">
@@ -100,8 +244,6 @@
     const canvas = document.getElementById("stockoutTimeline");
     if (!canvas || !window.Chart) return;
     try {
-      // rows contain Django model instances — cannot JSON serialize directly.
-      // Rebuild from DOM table instead (days + risk columns).
       const tableRows = document.querySelectorAll("#tab-consumption table.table tbody tr");
       const labels = [], data = [], colors = [];
       tableRows.forEach((tr, idx) => {
@@ -145,8 +287,58 @@
     });
   });
 
-  // Activate Tab from URL parameter on load
-  function checkUrlTab() {
+  // Handle Procurement Status Filters & Stat Cards
+  function setupProcurementControls() {
+    const procBtns = document.querySelectorAll("#procurementTabs .procurement-tab-btn");
+    const statCards = document.querySelectorAll(".procurement-stat-card");
+
+    function setActiveProcurementStatus(status) {
+      status = (status || "ALL").toUpperCase();
+      procBtns.forEach(btn => {
+        const btnStatus = btn.getAttribute("data-status");
+        if (btnStatus === status) {
+          btn.classList.add("active");
+          btn.setAttribute("aria-selected", "true");
+        } else {
+          btn.classList.remove("active");
+          btn.setAttribute("aria-selected", "false");
+        }
+      });
+      statCards.forEach(card => {
+        const cardStatus = card.getAttribute("data-status");
+        if (cardStatus === status) {
+          card.classList.add("active-stat-card");
+        } else {
+          card.classList.remove("active-stat-card");
+        }
+      });
+    }
+
+    procBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        setActiveProcurementStatus(btn.getAttribute("data-status"));
+      });
+    });
+
+    statCards.forEach(card => {
+      card.addEventListener("click", () => {
+        const targetStatus = card.getAttribute("data-status");
+        const matchingBtn = document.querySelector(`#procurementTabs .procurement-tab-btn[data-status="${targetStatus}"]`);
+        if (matchingBtn) {
+          matchingBtn.click();
+        }
+      });
+      card.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          card.click();
+        }
+      });
+    });
+  }
+
+  // Activate Tab from URL parameter on load + Scroll to Highlighted PR
+  function checkUrlState() {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get("tab");
     if (tabParam) {
@@ -156,15 +348,26 @@
         tabInstance.show();
       }
     }
+    const highlightId = "{{ highlight_id|default:'' }}" || params.get("highlight");
+    if (highlightId) {
+      setTimeout(() => {
+        const targetRow = document.getElementById(`pr-row-${highlightId}`);
+        if (targetRow) {
+          targetRow.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 250);
+    }
   }
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
-      checkUrlTab();
+      checkUrlState();
+      setupProcurementControls();
       initTimeline();
     });
   } else {
-    checkUrlTab();
+    checkUrlState();
+    setupProcurementControls();
     setTimeout(initTimeline, 300);
   }
 })();
