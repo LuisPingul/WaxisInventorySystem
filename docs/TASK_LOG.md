@@ -22,6 +22,33 @@ This document tracks all completed engineering tasks in reverse chronological or
 
 ## Historical Log
 
+### [2026-10-10] Render & Supabase Production Deployment Setup
+* **Task**: Orchestrate production deployment setup for INVENTIQ on Render with Supabase PostgreSQL backend.
+* **Summary**:
+  * Added `gunicorn`, `dj-database-url`, `psycopg2-binary`, and `whitenoise` to `requirements.txt`.
+  * Updated `config/settings.py` to import `dj_database_url` and dynamically configure `DATABASES["default"]` via `dj_database_url.config()` with SSL fallback and zero persistent connection age for PgBouncer/Supabase pooler.
+  * Configured `DEBUG` to switch off dynamically when deployed in production (detecting Render or `DJANGO_DEBUG=0`).
+  * Updated `ALLOWED_HOSTS` to accept traffic from `.onrender.com` and dynamic Render external hostnames.
+  * Ensured `whitenoise.middleware.WhiteNoiseMiddleware` is positioned immediately beneath `SecurityMiddleware`, and verified `STATIC_ROOT`.
+  * Created executable root-level `build.sh` pipeline script executing dependency installation, static files collection (`--no-input`), and database migrations.
+  * Updated `render.yaml` blueprint to execute `./build.sh`.
+* **Files Changed**:
+  * `requirements.txt`
+  * `config/settings.py`
+  * `build.sh`
+  * `render.yaml`
+  * `docs/TASK_LOG.md`
+* **Tests Run**:
+  * `./venv/bin/python manage.py check` (0 issues)
+  * Production check with `DJANGO_DEBUG=0` (0 issues)
+  * `gunicorn config.wsgi:application --check-config` (PASS)
+  * `./venv/bin/python manage.py collectstatic --no-input` (PASS, 482 post-processed)
+  * `./venv/bin/python manage.py migrate` (PASS)
+* **Result**: PASS (Production-ready deployment orchestration verified).
+* **Next Steps**: Push to GitHub and deploy to Render with Supabase credentials.
+
+---
+
 ### [2026-10-02] Procurement Status Tabs, Interactive KPI Cards & Closed-Loop Forecast Integration
 * **Task**: Unify the Forecast Tab and Procurement Tab into a seamless bidirectional supply chain pipeline—bringing high-contrast segmented status tabs to Procurement, interactive KPI cards, HTMX partial swaps, rich AI origin traceability, and closed-loop handoff.
 * **Summary**:
