@@ -1807,3 +1807,22 @@ body {
     border-left: 4px solid var(--brand-orange, #FE5F10) !important;
 }
 
+/* ==========================================================================
+   PWA INSTALL BUTTON & CONNECTIVITY
+   ========================================================================== */
+.pwa-install-btn {
+    background: rgba(254, 95, 16, 0.15) !important;
+    border: 1px solid rgba(254, 95, 16, 0.3) !important;
+    color: #ffffff !important;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+.pwa-install-btn:hover {
+    background: rgba(254, 95, 16, 0.28) !important;
+    border-color: var(--brand-orange, #FE5F10) !important;
+    transform: translateY(-1px);
+}
+

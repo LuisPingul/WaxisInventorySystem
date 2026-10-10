@@ -208,3 +208,32 @@ This document tracks all completed engineering tasks in reverse chronological or
 * **Result**: PASS (Zero issues, 100% test pass).
 * **Next Steps**: Await user instructions for next feature or workflow review.
 
+---
+
+### [2026-10-10] Progressive Web App (PWA) Implementation
+* **Task**: Transform INVENTIQ into a production-grade Progressive Web App (PWA) installable on iPads, Android tablets, desktop computers, and smartphones, with asset caching, offline fallback screen, and install prompts.
+* **Summary**:
+  1. Generated crisp PWA icon suite (`icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`, `favicon-32.png`) from Waxi's high-resolution W-mark using `/usr/bin/sips`.
+  2. Created Web App Manifest (`static/manifest.webmanifest`) with standalone display mode, theme color `#871F09`, background `#FDF8F4`, and quick shortcuts (`Deduct Stock`, `Forecast Hub`, `Executive Dashboard`).
+  3. Built Service Worker (`static/js/sw.js`) with versioned cache (`inventiq-pwa-v1`), pre-caching app shell, stale-while-revalidate for static assets, network-first for HTML navigations, and cache bypass for data mutations.
+  4. Designed branded offline screen (`templates/offline.html`) with connection status indicators and auto-reconnect retry button.
+  5. Implemented backend routes and views (`dashboard/pwa_views.py` and `config/urls.py`) serving `/manifest.webmanifest`, `/manifest.json`, `/sw.js` (with `Service-Worker-Allowed: /` and `Cache-Control: no-cache`), and `/offline/`.
+  6. Added PWA meta tags, Service Worker registration, `beforeinstallprompt` custom install buttons (sidebar footer & login screen), and real-time connectivity toasts to `templates/base.html` and `templates/accounts/login.html`.
+* **Files Changed**:
+  * `static/manifest.webmanifest`
+  * `static/js/sw.js`
+  * `templates/offline.html`
+  * `dashboard/pwa_views.py`
+  * `config/urls.py`
+  * `templates/base.html`
+  * `templates/accounts/login.html`
+  * `static/css/style.css`
+  * `static/images/pwa/`
+* **Tests Run**:
+  * `./venv/bin/python manage.py collectstatic --noinput` (8 files copied, 488 post-processed).
+  * `./venv/bin/python manage.py check` (0 issues).
+  * Automated shell test suite asserting HTTP 200 and MIME types for `/manifest.webmanifest`, `/manifest.json`, `/sw.js`, `/offline/`, `/accounts/login/`, and `/`.
+* **Result**: PASS (100% PWA test pass).
+* **Next Steps**: Await user instructions.
+
+

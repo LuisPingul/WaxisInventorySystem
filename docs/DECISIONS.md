@@ -164,4 +164,27 @@ This document records the architectural and design decisions made for **INVENTIQ
   - *Full page reload on "Convert to PR" without tab switch*: Rejected because user loses track of the generated PR.
 * **Impact**: Zero context disconnection, seamless 1-click PO creation to Viber dispatch, WCAG AAA contrast, and backwards-compatible URL routing.
 
+---
+
+### ADR-012: Progressive Web App (PWA) Architecture, Caching Strategy & Offline Resilience
+* **Date**: 2026-10-10
+* **Status**: Accepted
+* **Decision**:
+  1. Transform INVENTIQ into a production-grade Progressive Web App (PWA) with a Web App Manifest (`/manifest.webmanifest`), dedicated Service Worker (`/sw.js`), and full-screen standalone display mode (`display: "standalone"`).
+  2. Implement a multi-tiered Service Worker caching strategy:
+     - **Static Assets** (`/static/`, fonts, CDNs): Stale-While-Revalidate caching for sub-100ms shell loading.
+     - **Navigation Requests** (HTML pages): Network-First with fallback to cached views, and fallback to a branded `/offline/` screen if disconnected and uncached.
+     - **Mutations** (POST/PUT/DELETE): Zero caching (bypass SW completely) to guarantee transaction and financial ledger integrity.
+  3. Deploy high-resolution PWA icons (192x192, 512x512, maskable 512x512, 180x180 Apple touch icon, 32x32 favicon) generated from Waxi's brand W-mark.
+  4. Provide branded offline fallback screen (`templates/offline.html`) with live reconnect polling, and add non-intrusive install prompt buttons in the sidebar footer and login screen that trigger native installation via `beforeinstallprompt`.
+* **Reason**:
+  - Kitchen tablets (iPads and Android tablets) require a dedicated full-screen mode without browser address bar clutter or accidental navigation swipes.
+  - Commercial kitchens experience intermittent Wi-Fi drops. A graceful offline fallback screen prevents ugly browser crashes and clarifies connection status.
+  - Store managers and owners can install INVENTIQ directly to their desktop taskbar or dock.
+* **Alternatives Considered**:
+  - *Full native mobile app (iOS/Android)*: Rejected due to unnecessary development overhead, app store review delays, and platform fragmentation; PWA provides 95% of native benefits on a single unified Django codebase.
+  - *Aggressive offline transaction queuing (IndexedDB)*: Deferred/Rejected to avoid multi-device inventory deduction race conditions across concurrent kitchen terminals.
+* **Impact**: Native installability across iPads, Android, macOS, and Windows; instant page shell loads; resilience against kitchen Wi-Fi drops; zero duplicate stock deduction risk.
+
+
 

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json.schemastore.org/web-manifest-combined.json",
+  "id": "/",
+  "name": "INVENTIQ · Restaurant Inventory & Procurement",
+  "short_name": "INVENTIQ",
+  "description": "Smart Inventory & Predictive Procurement System for Waxi's / SND Foods International Inc.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "background_color": "#FDF8F4",
+  "theme_color": "#871F09",
+  "orientation": "any",
+  "lang": "en-PH",
+  "categories": ["business", "productivity", "food"],
+  "icons": [
+    {
+      "src": "/static/images/pwa/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/images/pwa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/images/pwa/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/static/images/pwa/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Deduct Stock",
+      "short_name": "Deduct",
+      "description": "Quick kitchen stock deduction",
+      "url": "/inventory/deduct/",
+      "icons": [{ "src": "/static/images/pwa/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Forecast Hub",
+      "short_name": "Forecast",
+      "description": "AI burn rate and procurement requests",
+      "url": "/forecast/",
+      "icons": [{ "src": "/static/images/pwa/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Executive Dashboard",
+      "short_name": "Dashboard",
+      "description": "Store operational briefing",
+      "url": "/",
+      "icons": [{ "src": "/static/images/pwa/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

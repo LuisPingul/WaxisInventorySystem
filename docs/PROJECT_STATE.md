@@ -1,6 +1,6 @@
 # Project State · INVENTIQ (WaxisInventorySystem)
 
-> **Last Updated**: 2026-10-02  
+> **Last Updated**: 2026-10-10  
 > **Client / Organization**: Waxi's / SND Foods International  
 > **Repository**: `WaxisInventorySystem`
 
@@ -17,6 +17,7 @@ INVENTIQ is a production-grade restaurant inventory management and predictive pr
 * **Language**: Python 3.11+
 * **Framework**: Django 4.2 LTS (`Django>=4.2,<5.0`)
 * **Dynamic Frontend Layer**: `django-htmx>=1.19`, Tailwind CSS (CDN), Bootstrap 5.3 (CDN), Bootstrap Icons 1.11, Chart.js 4.4 (CDN)
+* **Progressive Web App (PWA)**: Web App Manifest (`manifest.webmanifest`), Service Worker (`sw.js` with Cache Storage API), Offline Fallback (`offline.html`)
 * **Database**:
   * Local Development: SQLite (`db.sqlite3`)
   * Production Deployment: PostgreSQL via `psycopg[binary]>=3.2` and `dj-database-url>=2.2`
@@ -31,15 +32,15 @@ INVENTIQ is a production-grade restaurant inventory management and predictive pr
 ```
 WaxisInventorySystem/
 ├── accounts/          # User authentication, profiles, role management (OWNER, MANAGER, CREW, DEVELOPER)
-├── dashboard/         # Role-based landing views, operational metrics, executive briefing service
+├── dashboard/         # Role-based landing views, operational metrics, executive briefing, PWA views
 ├── inventory/         # Ingredients, units, stock deductions, transactions, kitchen touch cards
 ├── procurement/       # Purchase orders, PO approval workflow, dual-channel Viber & Email dispatch hub
 ├── forecasting/       # Dual-mode predictive engine (Statistical Holt-Winters + AI), supplier delivery rhythm
 ├── reports/           # Executive reports, spoilage in ₱ (SDG 12), supplier reliability, fast-moving items
 ├── audit/             # Centralized audit logging (log_action) for inventory and authentication events
 ├── suppliers/         # Vendor profiles, lead time tracking, contact info, linked ingredient FKs
-├── templates/         # Master layouts (base.html), role-specific templates, HTMX component partials
-├── static/            # CSS tokens (style.css), brand assets, images (waxis_w.png, logo)
+├── templates/         # Master layouts (base.html), role-specific templates, HTMX component partials, offline.html
+├── static/            # CSS tokens (style.css), PWA icons (static/images/pwa/), sw.js, manifest.webmanifest
 ├── docs/              # System documentation, PROJECT_STATE, DECISIONS, TASK_LOG, plans
 └── config/            # Django root settings, URL configuration, WSGI/ASGI entrypoints
 ```
@@ -85,6 +86,12 @@ WaxisInventorySystem/
    * Unified 4-tab Forecast Hub: **Consumption Forecast**, **Procurement Requests** (adjacent!), **Supplier Radar**, and **Stockout Timeline**.
    * 1-Click "Convert to PR" micro-UX automatically shifts active tab to Procurement Requests, highlights the new PR with `.row-highlighted` glow, and provides instant Viber/Email dispatch.
    * 100% backward compatibility redirect from `/procurement/` to `/forecast/?tab=procurement` with HTMX partial table swaps preserved.
+10. **Progressive Web App (PWA) with Offline Guard & Kitchen Tablet Mode**:
+   * Production-grade Web App Manifest (`/manifest.webmanifest`) and Service Worker (`/sw.js`) enabling native installation on iPads, Android tablets, desktop computers (macOS Dock / Windows Taskbar), and mobile phones.
+   * Full-screen standalone execution (`display: "standalone"`) providing zero-distraction kitchen touch logging.
+   * Stale-While-Revalidate caching for static CSS/JS/fonts/icons and Network-First caching for live data pages.
+   * Branded offline fallback screen (`/offline/`) with connection status indicators and auto-reconnect retry polling.
+   * Native PWA install prompts integrated in sidebar footer and login screen.
 
 ---
 
@@ -97,7 +104,7 @@ WaxisInventorySystem/
 
 ## 6. Known Constraints & Production Notes
 
-* **Static Assets**: Because WhiteNoise post-processes static files with hash manifests in production, always execute `./venv/bin/python manage.py collectstatic --noinput` after making edits to `static/css/style.css`.
+* **Static Assets**: Because WhiteNoise post-processes static files with hash manifests in production, always execute `./venv/bin/python manage.py collectstatic --noinput` after making edits to `static/css/style.css` or PWA files.
 * **HTMX 422 Handling**: `base.html` includes an `htmx:beforeSwap` listener that permits HTTP 422 responses to swap into the DOM so form error validation cards render cleanly without raw page reloads.
 
 ---
@@ -111,4 +118,6 @@ Agents must **NEVER** modify or roll back the following systems:
 * ⛔ **Do NOT alter brand tokens in `static/css/style.css`**: Maroon (`#871F09`), Orange (`#FE5F10`), Amber (`#FED216`), Charcoal (`#1E293B`).
 * ⛔ **Do NOT un-scope `.sidebar .nav-link` or re-introduce global `.nav-link` color overrides** that turn inactive tabs white or invisible. All in-page tabs must maintain high contrast (WCAG AA/AAA compliant).
 * ⛔ **Do NOT restore standalone top-level 'Procurement' in the sidebar**. Procurement is unified inside the Forecast Hub (`/forecast/?tab=procurement`), and `/procurement/` redirects to it.
+* ⛔ **Do NOT cache POST/PUT/DELETE mutations in the Service Worker**. All stock transactions, PO approvals, and auth requests must execute network-only to prevent multi-device race conditions.
 * ⛔ **Do NOT re-introduce `MESSAGE_TAGS = { 25: "error" }` in `config/settings.py`**.
+
