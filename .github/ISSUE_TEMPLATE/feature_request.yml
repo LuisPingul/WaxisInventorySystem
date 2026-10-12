@@ -1,0 +1,44 @@
+name: 💡 Feature Request / Ergonomics Improvement
+description: Suggest an idea or operational improvement for INVENTIQ
+title: "[FEAT]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea to make kitchen stock deductions smoother, enhance forecasting, or optimize reports? Let us know!
+  - type: dropdown
+    id: target-audience
+    attributes:
+      label: Target Persona
+      description: Who benefits most from this feature?
+      options:
+        - "Kitchen Crew (Touch Ergonomics & Fast Deduction)"
+        - "Store Manager (Procurement & Rhythms)"
+        - "Store Owner (P&L Analytics & Turnover)"
+        - "System Developer (Infrastructure & Tools)"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Is your feature request related to a operational bottleneck or pain point?
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see implemented.
+      placeholder: "Implement a feature where..."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: Describe any alternative solutions or workarounds you've considered.
+    validations:
+      required: false

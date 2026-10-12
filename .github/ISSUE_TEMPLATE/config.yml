@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 INVENTIQ Documentation Hub
+    url: https://github.com/LuisPingul/WaxisInventorySystem/tree/main/docs
+    about: Read system architecture, forecasting algorithms, and deployment guides.

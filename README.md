@@ -1,111 +1,207 @@
-# Waxi's Inventory Management System (INVENTIQ)
+# INVENTIQ · Waxi's Inventory Intelligence System
 
-Django inventory system for SND Foods International Inc. (Waxi's) with **dual-mode AI forecasting**:
-- **Consumption-based** — Rolling 30-day usage predicts stockout dates
-- **Supplier Rhythm** — Historical delivery intervals (Agrilytics) predict supplier windows
+<div align="center">
 
-Zero external AI dependencies — all forecasting is pure Python/statistics.
+![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python&logoColor=white)
+![Django](https://img.shields.io/badge/Django-4.2%20LTS-092E20?logo=django&logoColor=white)
+![Database](https://img.shields.io/badge/PostgreSQL-Supabase-3ECF8E?logo=supabase&logoColor=white)
+![Hosting](https://img.shields.io/badge/Hosted%20on-Render-46E3B7?logo=render&logoColor=white)
+![PWA](https://img.shields.io/badge/PWA-Installable%20Offline%20Ready-5A0FC8?logo=pwa&logoColor=white)
+![WCAG](https://img.shields.io/badge/Accessibility-WCAG%202.2%20AA-success)
+![HTMX](https://img.shields.io/badge/Frontend-HTMX%20%2B%20Bootstrap%205-3366CC?logo=htmx&logoColor=white)
 
-## Roles
+**Enterprise-grade Inventory Management & Dual-Mode Predictive Procurement System for SND Foods International Inc. (Waxi's).**
 
-- Developer — technical superuser (Django admin)
-- Owner — business superuser (full dashboard + radar + forecast)
-- Manager — operational management (dashboard + radar + HTMX forecast)
-- Crew — kitchen/stock operations (deduct stock, my transactions)
+[Live Demo](#quick-start) • [Architecture Docs](docs/architecture/system_design.md) • [Forecasting Engine](docs/ai_forecasting.md) • [Deployment Guide](docs/deployment/render_supabase.md) • [Design System](docs/design_system.md)
 
-Business hierarchy: Owner > Manager > Crew  
-Developer = technical admin (outside hierarchy)
+</div>
 
-## Quick Start
+---
 
+## 🌟 Executive Summary
+
+**INVENTIQ** is an end-to-end, kitchen-tested inventory intelligence platform built specifically for fast-casual restaurant operations. It unifies high-speed kitchen stock deductions, executive financial oversight, and automated procurement dispatch into a single high-performance monolith.
+
+### 💡 Core Pillars
+* **Dual-Mode Predictive Engine**: Combines **30-day rolling consumption burn-rates** with **Agrilytics Supplier Rhythm (Inter-Arrival Time)** forecasting to predict exact stockout dates without external AI API dependencies.
+* **Closed-Loop Procurement**: Convert AI stockout alerts into formal Purchase Requests (PRs) in 1 click, dispatching instantly via formatted Viber messages or clean email drafts.
+* **Kitchen Touch Ergonomics**: A dedicated Crew Kitchen Hub with $\ge$48px touch targets, quick-increment step pills (`+1`, `+5`, `+10`, `Max`), and zero-stock guards designed for messy kitchen tablet use.
+* **Progressive Web App (PWA)**: Full offline service worker caching, custom branded recovery screen, and borderless fullscreen installation across iPads, Android tablets, and desktop workstations.
+
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+flowchart TD
+    subgraph Clients["Device & Client Layer"]
+        C1["Kitchen Tablet (Crew PWA / iPad)"]
+        C2["Manager Workstation (Desktop Chrome)"]
+        C3["Executive Mobile (iOS / Android)"]
+    end
+
+    subgraph CDN_Gateway["Network & Edge Layer"]
+        WAF["Render Edge / SSL Gateway"]
+        SW["Service Worker (sw.js / Offline Fallback)"]
+        WN["WhiteNoise Static Engine (Compressed Manifest)"]
+    end
+
+    subgraph Core["Django Application Monolith (Python 3.11)"]
+        Auth["Accounts & RBAC (Crew / Manager / Owner / Dev)"]
+        KHub["Kitchen Hub (Fast Deductions & History)"]
+        Dash["Executive Dashboards (KPIs, Storage Mix, Trends)"]
+        Fore["Dual-Mode Forecasting (Burn-Rate + Agrilytics)"]
+        Proc["Procurement & Dispatch (Viber / Email POs)"]
+        Aud["Compliance & Audit Engine (Immutable Logs)"]
+    end
+
+    subgraph DataLayer["Persistence & Infrastructure"]
+        DB[("Supabase PostgreSQL (Transaction Pooler :6543)")]
+        Cron["Render Cron Job (Daily 18:00 UTC compute_forecasts)"]
+    end
+
+    C1 & C2 & C3 --> SW
+    SW --> WAF
+    WAF --> WN
+    WN --> Core
+    Core --> DB
+    Cron -.->|Nightly Run| Fore
+    Fore -->|Auto-Generate| Proc
+```
+
+---
+
+## 👥 Role-Based Access Control (RBAC)
+
+| Role | Target Persona | Primary Interface & Scope |
+| :--- | :--- | :--- |
+| **Crew** | Line cooks, kitchen prep staff | **Kitchen Hub strictly**: High-speed stock deduction grid, item search, personal transaction history. |
+| **Manager** | Store / branch managers | **Operational Hub**: Live stock inventory, supplier directory, forecasting tabs, procurement approvals, and dispatch. |
+| **Owner** | Franchisees & brand executives | **Executive Suite**: Full financial inventory valuation, gross margin impact, waste analytics (SDG 12), and turnover KPIs. |
+| **Developer**| System administrators | **Django Admin & Audit**: Infrastructure, system checks, database migrations, and raw audit trails. |
+
+---
+
+## 🚀 Quick Start (Local Development)
+
+### 1. Prerequisites
+* Python 3.11+
+* Git
+* SQLite (local dev) or PostgreSQL
+
+### 2. Installation
 ```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
+# Clone the repository
+git clone https://github.com/LuisPingul/WaxisInventorySystem.git
+cd WaxisInventorySystem
+
+# Create and activate virtual environment
+python3 -m venv venv
+source venv/bin/activate  # macOS / Linux
 # venv\Scripts\activate   # Windows
+
+# Install locked dependencies
 pip install -r requirements.txt
+
+# Configure environment variables
+cp .env.example .env
+
+# Apply database migrations
 python manage.py migrate
+
+# Seed rich demonstration dataset (Categories, Ingredients, Transactions, Suppliers)
+python manage.py seed_demo
+
+# Create administrator account
 python manage.py createsuperuser
-# In Django admin: edit user's Profile → Role = OWNER
+
+# Start development server
 python manage.py runserver
 ```
 
-Open: http://127.0.0.1:8000/accounts/login/
+Open **`http://127.0.0.1:8000/accounts/login/`** in your browser.
 
-## Key Features
+---
 
-| Module | Description |
-|--------|-------------|
-| **Split-Screen Authentication** | Responsive enterprise portal (`lg:flex-row` showcase on desktop, touch card on mobile), password toggle, ≥48px touch targets, 16px iOS zoom protection |
-| **Kitchen Hub (Crew Interface)** | Dedicated **2-tab interface** (`Deduct Stock` + `My Transactions`), auto-landing on login, 48px touch targets, quick deduction step pills (`+1`, `+5`, `+10`, `Max`), zero-stock guards |
-| **Owner/Manager Dashboards** | KPI analytics, Executive Summary (structured list), Procurement Radar, dynamic category Storage Distribution doughnut chart, High Demand Products trendline |
-| **Forecasting** | 3-tab UI: Consumption (HTMX risk filter) + Supplier Radar (60s polling) + Stockout Timeline (Chart.js) |
-| **Procurement Radar** | "Active Hunter" — upcoming supplier delivery windows, Refresh + auto-polling on dashboards, instant InboundShipment sync |
-| **PO Manager** | Alerts → PRs → Supplier emails (deterministic templates) |
-| **Reports** | Turnover, waste, variance tracking (SDG 12) |
-| **Design System** | Brand-locked tokens (`#871F09`, `#FE5F10`, `#FED216`), WCAG 2.2 AA kitchen ergonomics (see [`DESIGN_SYSTEM.md`](file:///Users/luispingul/WaxisInventorySystem/DESIGN_SYSTEM.md)) |
+## 🔮 Dual-Mode Forecasting (Zero-AI Architecture)
 
-## Forecasting Engine (Zero-AI)
+INVENTIQ delivers predictive intelligence using pure deterministic statistics (`statistics` module) with **zero external API costs, latency, or rate limits**:
 
-1. **Consumption Forecast** (`compute_forecasts` cron) — 30-day rolling avg from `StockTransaction`, predicts stockout date, suggests reorder, classifies risk (HIGH/MEDIUM/LOW)
-2. **Supplier Rhythm** (Agrilytics) — Inter-Arrival Time analysis on `InboundShipment` history (min 3 deliveries), predicts delivery windows with confidence score
-3. **Dual-Mode** — Combines both: downgrades risk if supplier delivering soon, escalates if no delivery window in sight
-4. **Shared selectors** (`forecasting/selectors.py`) — `get_enriched_rows` + `get_radar_alerts` + `build_forecast_context` reused by forecast page and dashboard partials (no duplicated logic)
-5. **Variance tracking** — `AIProcurementAlert` logs predicted vs actual zero date (`variance_days`, `accuracy_note`), surfaced in `forecasting/alerts.html`
+1. **Consumption Forecast Model**:
+   * Evaluates rolling 30-day historical usage from `StockTransaction`.
+   * Projects daily burn rate ($B = \frac{\sum U}{30}$) and calculates days until zero stock ($D = \frac{S_{\text{current}}}{B}$).
+   * Automatically classifies stockout risk into `HIGH` ($\le 3$ days), `MEDIUM` ($\le 7$ days), or `LOW`.
+2. **Supplier Rhythm Model (Agrilytics)**:
+   * Analyzes historical delivery intervals on `InboundShipment` records (minimum 3 deliveries).
+   * Calculates mean delivery cadence and variance to forecast the next expected arrival window.
+3. **Dual-Risk Matrix**:
+   * Synthesizes consumption urgency with supplier cadence:
+     * *Escalates to HIGH* if stock will deplete before the next expected delivery.
+     * *Downgrades urgency* if a supplier delivery is confirmed within the safe inventory horizon.
+4. **Automated Cron**:
+   * Executed daily via Render Cron: `python manage.py compute_forecasts`.
 
-## Management Commands
+---
+
+## 🛠️ Management Commands
 
 ```bash
-# Backfill historical inbound shipments (from PRs + StockTransaction)
+# Compute consumption alerts and supplier rhythms
+python manage.py compute_forecasts [--days=30] [--dry-run] [--rhythm-only]
+
+# Backfill historical inbound delivery rhythms from POs and transactions
 python manage.py backfill_inbound_shipments [--dry-run] [--clear]
 
-# Daily cron: consumption alerts + supplier rhythms
-python manage.py compute_forecasts [--days=30] [--dry-run] [--rhythm-only]
+# Seed demo catalog with realistic fast-casual restaurant data
+python manage.py seed_demo
 ```
 
-## Requirements
+---
 
-- Python 3.9+
-- Django 4.2 (LTS)
-- PostgreSQL (production) / SQLite (dev)
-- No external AI APIs (zero `google-generativeai`)
+## 🌐 Production Deployment (Render + Supabase)
 
-## Environment Variables
+Detailed step-by-step instructions are documented in [**`docs/deployment/render_supabase.md`**](docs/deployment/render_supabase.md).
 
-```bash
-DJANGO_SECRET_KEY=...
-DJANGO_DEBUG=1
-ALLOWED_HOSTS=127.0.0.1,localhost
-DATABASE_URL=postgresql://...  # optional, else SQLite
-```
+* **Hosting**: Render Web Service (`Python`) + Render Cron Job
+* **Build Command**: `./build.sh`
+* **Start Command**: `gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120`
+* **Database**: Supabase PostgreSQL Transaction Pooler (Port `6543`)
+* **Static Assets**: WhiteNoise with `CompressedManifestStaticFilesStorage`
 
-## Deployment (Render + Supabase)
+### Required Production Environment Variables
+| Key | Example / Description |
+| :--- | :--- |
+| `DATABASE_URL` | `postgresql://postgres.[REF]:[PASS]@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require` |
+| `DJANGO_SECRET_KEY` | 50+ character random cryptographic key |
+| `DJANGO_DEBUG` | `0` (Switches on secure cookies and disables debug tracebacks) |
+| `ALLOWED_HOSTS` | `.onrender.com,waxis-inventory.onrender.com` |
+| `CSRF_TRUSTED_ORIGINS`| `https://*.onrender.com,https://waxis-inventory.onrender.com` |
+| `PYTHON_VERSION` | `3.11.9` |
 
-See `DEPLOYMENT_PLAN.md` for Render Web Service + Supabase Free (Singapore) + Cron Job setup.
+---
 
-## Architecture
+## 📚 Documentation Directory
 
-- **Frontend**: Django Templates + HTMX (partials, `HX-Redirect`, polling) + Bootstrap 5 + Chart.js (CDN)
-- **Backend**: Django 4.2 (LTS), pure Python forecasting (`statistics` module)
-- **DB**: PostgreSQL (Supabase) / SQLite (dev)
-- **Zero external AI** — no Gemini, no API keys required
+Explore the dedicated documentation in the [`docs/`](docs/) directory:
 
-## AI Development Skills (OpenCode)
+* 🏛️ **[System Architecture](docs/architecture/system_design.md)** — Architectural diagrams, data models, and specifications.
+* 📈 **[Dual-Mode Forecasting Engine](docs/ai_forecasting.md)** — In-depth mathematical formulas and Agrilytics rhythms.
+* 🎨 **[Design System & Ergonomics](docs/design_system.md)** — Waxi's Maroon/Orange/Gold tokens and WCAG rules.
+* 🚀 **[Production Deployment Plan](docs/deployment/render_supabase.md)** — Full Render Web & Supabase setup.
+* 📜 **[Architectural Decision Records](docs/DECISIONS.md)** — ADR-001 through ADR-012 records.
+* 📋 **[Project State & Invariants](docs/PROJECT_STATE.md)** — Feature registry and non-regression rules.
+* ⏱️ **[Task Log](docs/TASK_LOG.md)** — Complete chronological engineering trajectory.
+* 🤖 **[Agent Guidelines](docs/agents.md)** — Operational guidelines for AI coding assistants.
 
-Installed via [vintasoftware/django-ai-plugins](https://github.com/vintasoftware/django-ai-plugins) in `.opencode/plugins/django-ai-plugins/`.
+---
 
-| Skill | Purpose | Applies To |
-|-------|---------|------------|
-| `ui-ux-pro-max` | Design system tokens, kitchen touch ergonomics (≥48px), Chart.js themes | ✅ Kitchen Hub, Dashboards, Reports |
-| `django-expert` | Models, ORM, views, security, testing, deployment | ✅ All Django work |
-| `django-safe-migration` | Zero-downtime PostgreSQL migrations (concurrent indexes, FK validation, db_default) | ✅ Migrations (supplier FK, etc.) |
-| `django-reviewer` | Code review for Django/DRF anti-patterns | ✅ PR review, refactoring |
-| `django-celery-expert` | Celery task patterns | ⚠️ Not used (management commands) |
-| `cdrf-expert` | DRF class-based view guidance | ⚠️ Not used (HTMX + FBVs) |
+## 🤝 Contributing & Security
 
-**Usage in OpenCode / CLI:**
-```bash
-python3 .opencode/skills/ui-ux-pro-max/scripts/search.py "kitchen touch targets" --domain ux
-python3 .opencode/skills/ui-ux-pro-max/scripts/search.py "inventory trends" --domain chart
-opencode run "Review forecasting/services.py for N+1 queries"
-opencode run "Check migration 0002 for zero-downtime safety"
-```
+* **Contribution Guidelines**: Please review [**`CONTRIBUTING.md`**](CONTRIBUTING.md) before submitting pull requests.
+* **Security Disclosures**: Please review [**`SECURITY.md`**](SECURITY.md) for vulnerability reporting.
+
+---
+
+<div align="center">
+Built with ❤️ for <b>SND Foods International Inc. (Waxi's)</b>.
+</div>

@@ -1,0 +1,60 @@
+name: 🐛 Bug Report
+description: Create a report to help us improve INVENTIQ
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report! Please provide as much detail as possible.
+  - type: dropdown
+    id: module
+    attributes:
+      label: Affected Module
+      description: Select the module where the bug occurred.
+      options:
+        - "Dashboard (Owner/Manager/Crew)"
+        - "Inventory (Deduct Stock / Details)"
+        - "Forecasting & Agrilytics"
+        - "Procurement & Purchase Requests"
+        - "Suppliers Management"
+        - "Reports & Analytics"
+        - "PWA / Offline Functionality"
+        - "Authentication / Roles"
+        - "Deployment / Database"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe what happened...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Go to '/forecast/'
+        2. Click on '...'
+        3. Observe error...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Device, OS, Browser, or Host details (e.g., iPad Safari, Desktop Chrome, Render Live).
+      placeholder: "macOS 15 / Chrome 129 / iPadOS Safari"
+    validations:
+      required: false

@@ -21,7 +21,7 @@ Deploy the Django monolith to Render Free tier + Supabase Free Singapore, no Ver
   - **Kitchen Touch Ergonomics** (`_deduct_card.html`): 48px touch targets, quick-increment pills (`+1`, `+5`, `+10`, `Max`), zero-stock guards, HTTP 422 error handling.
   - **Logout Session Message Leak Fix** (`accounts/views.py`, `inventory/views.py`, `config/settings.py`): Message storage purged on logout, HTMX partials prevented from poisoning cookies, `MESSAGE_TAGS` 25 error override removed.
   - **Real-Time Inbound Delivery Ingestion** (`procurement/views.py:mark_delivered`): Automatically logs `InboundShipment` records upon PO delivery for continuous Agrilytics rhythm learning.
-  - **Documentation**: Standardized `DESIGN_SYSTEM.md`, renamed and updated `ai_integration.md`, updated `System Design and Architecture Document.md` and `README.md`.
+  - **Documentation**: Standardized [`docs/design_system.md`](../design_system.md), updated [`docs/ai_forecasting.md`](../ai_forecasting.md), updated [`docs/architecture/system_design.md`](../architecture/system_design.md), and [`README.md`](../../README.md).
 - **Forecasting UI & Engine (`c568432`)**: `forecasting/selectors.py` shared enrichment, brand-aligned radar (`radar-card`), HTMX `HX-Redirect` order flow, deduplicated partials, dual-risk highlights, timeline chart, variance UI, radar polling.
 - **Doughnut Chart**: Category dynamic binding (`Dry Goods` $\rightarrow$ Amber, `Chilled` $\rightarrow$ Orange, `Frozen` $\rightarrow$ Maroon) with 65% cutout; empty data guards.
 - **Infrastructure Patches**: `requirements.txt` (Django 4.2 LTS, `gunicorn`, `whitenoise`, `dj-database-url`), `render.yaml` Blueprint, `config/settings.py` database pooler + WhiteNoise staticfiles.

@@ -152,7 +152,7 @@ The PostgreSQL database is normalized and relies on the following core entities 
 
 ## 8. UI/UX Modernization & Architecture Hardening (2026-09-30)
 
-### 8.1 Design System Integration (`DESIGN_SYSTEM.md`)
+### 8.1 Design System Integration ([`docs/design_system.md`](../design_system.md))
 - **Brand Tokens**: Formally standardized Waxi's / SND Foods corporate palette:
   - Deep Maroon (`#871F09`) — primary identity, dark headers, frozen categories.
   - Electric Orange (`#FE5F10`) — primary interactive action, focus rings, chilled categories.
