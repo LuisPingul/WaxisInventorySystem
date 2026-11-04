@@ -22,6 +22,27 @@ This document tracks all completed engineering tasks in reverse chronological or
 
 ## Historical Log
 
+### [2026-11-04] Ponytail & Graphify AI Skills and CLI Integration
+* **Task**: Install and integrate `dietrichgebert/ponytail` and `Graphify-Labs/graphify` into the developer environment and repository.
+* **Summary**:
+  * Installed Ponytail (`~/.gemini/config/plugins/ponytail/`) containing `plugin.json` and 6 skills (`ponytail`, `ponytail-review`, `ponytail-audit`, `ponytail-debt`, `ponytail-gain`, `ponytail-help`) for anti-overengineering and minimalist senior dev workflows.
+  * Added `.agents/rules/ponytail.md` to enforce the Ponytail pragmatic guidelines at the repository level.
+  * Installed `graphifyy` (v0.9.102) package via pip into the virtual environment (`./venv/bin/graphify`), providing AST parsing with Tree-sitter parsers (Python, JS, TS, SQL, etc.) and knowledge graph algorithms.
+  * Installed Graphify skill (`~/.gemini/config/plugins/graphify/`) with `plugin.json`, `SKILL.md`, and complete reference modules.
+  * Deployed Graphify skill to project workspace (`.agents/skills/graphify/` and `.opencode/skills/graphify/`).
+* **Files Changed**:
+  * `docs/TASK_LOG.md`
+  * `.agents/rules/ponytail.md`
+  * `.agents/skills/graphify/SKILL.md`
+  * `.agents/skills/graphify/references/*`
+* **Tests Run**:
+  * `./venv/bin/graphify --version` (graphify 0.9.102)
+  * `./venv/bin/python manage.py check` (0 issues identified)
+* **Result**: PASS (Both skills installed, registered, and operational).
+* **Next Steps**: Ready for user exploration via `/ponytail` and `/graphify`.
+
+---
+
 ### [2026-10-12] Repository Reorganization & GitHub Standards Architecture
 * **Task**: Reorganize repository structure to production open-source standards, consolidate documentation, implement GitHub Actions CI, and provide templates and community health files.
 * **Summary**:
