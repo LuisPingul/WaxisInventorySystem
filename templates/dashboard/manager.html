@@ -25,8 +25,13 @@
 
     </div>
 
-
-    
+    <a
+        href="{% url 'forecasting:forecast' %}?tab=procurement"
+        class="btn btn-primary"
+    >
+        <i class="bi bi-cart3 me-2"></i>
+        Procurement Hub
+    </a>
 
 </div>
 
@@ -96,19 +101,6 @@
 
 
 {% include "dashboard/_executive_summary.html" with summary=executive_summary %}
-
-<div class="panel mb-3">
-  <div class="panel-header">
-    <h3><i class="bi bi-radar me-1"></i> Procurement Radar</h3>
-    <div class="d-flex gap-2">
-      <button class="btn btn-sm btn-light" hx-get="{% url 'forecasting:procurement_radar' %}?radar_id=procurement-radar-manager" hx-target="#procurement-radar-manager" hx-swap="outerHTML"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
-      <a href="{% url 'forecasting:forecast' %}?tab=radar" class="btn btn-sm btn-light">View All</a>
-    </div>
-  </div>
-  <div class="p-2" hx-get="{% url 'forecasting:procurement_radar' %}?radar_id=procurement-radar-manager" hx-trigger="every 90s" hx-target="#procurement-radar-manager" hx-swap="outerHTML">
-    {% include "forecasting/_procurement_radar.html" with alerts=radar_alerts radar_id="procurement-radar-manager" %}
-  </div>
-</div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 <div class="panel">
@@ -230,6 +222,19 @@
   }
 })();
 </script>
+
+<div class="panel mb-4">
+  <div class="panel-header">
+    <h3><i class="bi bi-radar me-1"></i> Procurement Radar</h3>
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm btn-light" hx-get="{% url 'forecasting:procurement_radar' %}?radar_id=procurement-radar-manager" hx-target="#procurement-radar-manager" hx-swap="outerHTML"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+      <a href="{% url 'forecasting:forecast' %}?tab=radar" class="btn btn-sm btn-light">View All</a>
+    </div>
+  </div>
+  <div class="p-2" hx-get="{% url 'forecasting:procurement_radar' %}?radar_id=procurement-radar-manager" hx-trigger="every 90s" hx-target="#procurement-radar-manager" hx-swap="outerHTML">
+    {% include "forecasting/_procurement_radar.html" with alerts=radar_alerts radar_id="procurement-radar-manager" %}
+  </div>
+</div>
 
 <div class="dashboard-grid">
 

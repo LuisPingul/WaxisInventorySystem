@@ -22,6 +22,23 @@ This document tracks all completed engineering tasks in reverse chronological or
 
 ## Historical Log
 
+### [2026-11-04] Manager Dashboard Visual Balance & Layout Alignment
+* **Task**: Fix visual asymmetry and sparse "zoomed out" layout feeling on Manager Dashboard compared to Owner and Crew views.
+* **Summary**:
+  * Diagnosed primary root cause: browser zoom on the Manager tab was scaled to ~67% (sidebar measured 109px vs 166px in Owner/Crew).
+  * Resolved layout asymmetry: added top-right `Procurement Hub` CTA button (`btn-primary` with `bi-cart3`) to the page header in `templates/dashboard/manager.html`, balancing the row identically to the Owner's `Manage Users` button.
+  * Reordered component hierarchy: moved Storage Distribution doughnut and High Demand Products trendline charts up directly underneath the Executive Operations Briefing, and repositioned Procurement Radar below the charts. This eliminates the large hollow gap caused by empty radar states and establishes visual parity with the Owner dashboard.
+* **Files Changed**:
+  * `templates/dashboard/manager.html`
+  * `docs/TASK_LOG.md`
+* **Tests Run**:
+  * `./venv/bin/python manage.py check` (0 issues identified)
+  * `./venv/bin/python manage.py collectstatic --no-input` (PASS, 482 post-processed)
+* **Result**: PASS (Visual balance and layout parity achieved).
+* **Next Steps**: Await user verification after browser zoom reset (`Cmd + 0`).
+
+---
+
 ### [2026-11-04] Ponytail & Graphify AI Skills and CLI Integration
 * **Task**: Install and integrate `dietrichgebert/ponytail` and `Graphify-Labs/graphify` into the developer environment and repository.
 * **Summary**:
