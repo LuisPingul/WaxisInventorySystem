@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from accounts.decorators import role_required
 from accounts.models import Profile
@@ -73,6 +74,7 @@ def supplier_edit(request, pk):
 
 
 @role_required(*MANAGEMENT)
+@require_POST
 def supplier_toggle(request, pk):
     supplier = get_object_or_404(Supplier, pk=pk)
     supplier.is_active = not supplier.is_active

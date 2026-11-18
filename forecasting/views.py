@@ -1,7 +1,10 @@
+import re
+
 from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from accounts.decorators import role_required
 from accounts.models import Profile
@@ -102,6 +105,7 @@ def alerts_list(request):
 
 
 @role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER, Profile.Role.MANAGER)
+@require_POST
 def alert_approve(request, pk):
     alert = get_object_or_404(AIProcurementAlert, pk=pk)
     # Convert to ProcurementRequest
@@ -121,6 +125,7 @@ def alert_approve(request, pk):
 
 
 @role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER, Profile.Role.MANAGER)
+@require_POST
 def alert_reject(request, pk):
     alert = get_object_or_404(AIProcurementAlert, pk=pk)
     alert.status = AIProcurementAlert.Status.REJECTED
@@ -136,9 +141,10 @@ def procurement_radar(request):
     from .selectors import get_radar_alerts
 
     enriched = get_radar_alerts(days_ahead=30, min_confidence=0.1, limit=20)
-    # Preserve caller target id so hx-swap outerHTML replaces correctly
-    radar_id = request.GET.get("radar_id") or request.headers.get("HX-Target") or "procurement-radar"
-    radar_id = str(radar_id).lstrip("#").strip() or "procurement-radar"
+    # Preserve caller target id so hx-swap outerHTML replaces correctly (strictly validated against XSS)
+    raw_radar_id = request.GET.get("radar_id") or request.headers.get("HX-Target") or "procurement-radar"
+    candidate_id = str(raw_radar_id).lstrip("#").strip()
+    radar_id = candidate_id if re.fullmatch(r"[A-Za-z0-9_-]{1,64}", candidate_id) else "procurement-radar"
     return render(
         request, "forecasting/_procurement_radar.html", {"alerts": enriched, "radar_id": radar_id}
     )

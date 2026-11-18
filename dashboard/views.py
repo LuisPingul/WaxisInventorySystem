@@ -2,7 +2,9 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.utils.html import escape
 
+from accounts.decorators import role_required
 from accounts.models import Profile
 from inventory.models import Ingredient, StockTransaction
 from procurement.models import ProcurementRequest
@@ -58,18 +60,18 @@ def generate_executive_summary(context_dict):
             ('Category Breakdown', cat_summary, 'Balanced distribution — no category over/under-represented'),
         ]
 
-    # Build HTML
+    # Build HTML with contextual output encoding (VibeSec XSS Defense)
     items_html = ''.join(
-        f'<li><strong>{label}:</strong> {value} — <span class="text-muted">{explanation}</span></li>'
+        f'<li><strong>{escape(label)}:</strong> {escape(str(value))} — <span class="text-muted">{escape(explanation)}</span></li>'
         for label, value, explanation in items
     )
 
     return f'''
 <div class="executive-summary">
-  <h6 class="{header_class} mb-2">{header}</h6>
+  <h6 class="{escape(header_class)} mb-2">{escape(header)}</h6>
   <ol class="mb-3 small">{items_html}</ol>
-  <div class="recommendation p-2 rounded {rec_class}">
-    <strong>🎯 Recommendation:</strong> {recommendation}
+  <div class="recommendation p-2 rounded {escape(rec_class)}">
+    <strong>🎯 Recommendation:</strong> {escape(recommendation)}
   </div>
 </div>
 '''.strip()
@@ -111,7 +113,7 @@ def _chart_data(distribution):
     return {"labels": labels, "counts": counts}
 
 
-@login_required
+@role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER, Profile.Role.MANAGER)
 def manager_dashboard(request):
     ctx = dashboard_context()
     executive_summary = get_executive_summary_context(ctx)
@@ -149,7 +151,7 @@ def manager_dashboard(request):
     })
 
 
-@login_required
+@role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER)
 def owner_dashboard(request):
     ctx = dashboard_context()
     executive_summary = get_executive_summary_context(ctx)
@@ -198,7 +200,7 @@ def owner_dashboard(request):
     })
 
 
-@login_required
+@role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER, Profile.Role.MANAGER)
 def ai_summary_view(request):
     ctx = dashboard_context()
     summary = get_executive_summary_context(ctx)

@@ -59,7 +59,7 @@ def inventory_list(request):
     })
 
 
-@login_required
+@role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER, Profile.Role.MANAGER)
 def inventory_search_partial(request):
     """HTMX endpoint for live search autocomplete - returns filtered rows as HTML fragment."""
     q = request.GET.get("q", "").strip()
@@ -70,7 +70,7 @@ def inventory_search_partial(request):
         qs = qs[:10]
     return render(request, "inventory/_search_results.html", {"ingredients": qs, "query": q})
 
-@login_required
+@role_required(Profile.Role.DEVELOPER, Profile.Role.OWNER, Profile.Role.MANAGER)
 def ingredient_detail(request, pk):
     ingredient = get_object_or_404(Ingredient, pk=pk)
     transactions = ingredient.transactions.select_related("user")[:50]

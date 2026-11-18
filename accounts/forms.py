@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
 from .models import Profile
 
 class LoginForm(forms.Form):
@@ -39,6 +40,27 @@ class UserCreateForm(forms.ModelForm):
                 (Profile.Role.MANAGER, "Manager"),
                 (Profile.Role.CREW, "Crew"),
             ]
+
+    def clean_role(self):
+        selected_role = self.cleaned_data.get("role")
+        actor_role = getattr(getattr(self.actor, "profile", None), "role", None)
+        if actor_role == Profile.Role.OWNER and selected_role not in {
+            Profile.Role.MANAGER,
+            Profile.Role.CREW,
+        }:
+            raise forms.ValidationError("Owners may only provision Manager or Crew accounts.")
+        return selected_role
+
+    def clean_password(self):
+        password = self.cleaned_data.get("password", "")
+        user_stub = User(
+            username=self.cleaned_data.get("username", ""),
+            first_name=self.cleaned_data.get("first_name", ""),
+            last_name=self.cleaned_data.get("last_name", ""),
+            email=self.cleaned_data.get("email", ""),
+        )
+        validate_password(password, user=user_stub)
+        return password
 
     def save(self, commit=True):
         user = super().save(commit=False)

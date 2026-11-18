@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from accounts.decorators import role_required
 from accounts.models import Profile
@@ -118,6 +119,7 @@ def create_request(request):
 
 
 @role_required(*MANAGEMENT)
+@require_POST
 def approve(request, pk):
     obj = get_object_or_404(ProcurementRequest, pk=pk)
     obj.status = ProcurementRequest.Status.APPROVED
@@ -131,6 +133,7 @@ def approve(request, pk):
 
 
 @role_required(*MANAGEMENT)
+@require_POST
 def reject(request, pk):
     obj = get_object_or_404(ProcurementRequest, pk=pk)
     obj.status = ProcurementRequest.Status.REJECTED
@@ -144,6 +147,7 @@ def reject(request, pk):
 
 
 @role_required(*MANAGEMENT)
+@require_POST
 def mark_ordered(request, pk):
     obj = get_object_or_404(ProcurementRequest, pk=pk)
     if obj.status not in [ProcurementRequest.Status.APPROVED, ProcurementRequest.Status.PENDING]:
@@ -158,6 +162,7 @@ def mark_ordered(request, pk):
 
 
 @role_required(*MANAGEMENT)
+@require_POST
 def mark_delivered(request, pk):
     obj = get_object_or_404(ProcurementRequest.objects.select_related("ingredient", "supplier"), pk=pk)
     if obj.status not in [ProcurementRequest.Status.ORDERED, ProcurementRequest.Status.APPROVED]:
